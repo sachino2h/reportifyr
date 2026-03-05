@@ -2,7 +2,7 @@ Package: azreportifyr
 Title: Reproducible Reporting Made Simple with R
 Version: 0.3.4
 Authors@R: c(
-    person("Sachin", "Patel", , "sachin.patel@o2h.com", role = c("aut", "cre")),
+    person("Sachin", "Patel", , "sachin.patel@o2h.com", role = c("aut", "cre"))
   )
 Description: Create reproducible reports with Microsoft Word and R.
 License: GPL (>= 3)
