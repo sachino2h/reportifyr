@@ -1,8 +1,9 @@
 import argparse
 import copy
+import zipfile
 import sys
 
-from docx import Document
+from lxml import etree
 
 
 def parse_args():
@@ -39,23 +40,49 @@ def main():
         print("ERROR: --table-index must be >= 1", file=sys.stderr)
         return 2
 
-    src = Document(args.source)
-    if len(src.tables) < args.table_index:
+    w_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    ns = {"w": w_ns}
+
+    with zipfile.ZipFile(args.source, "r") as src_zip:
+        try:
+            src_xml = src_zip.read("word/document.xml")
+        except KeyError:
+            print("ERROR: source DOCX missing word/document.xml", file=sys.stderr)
+            return 2
+
+    src_root = etree.fromstring(src_xml)
+    src_tables = src_root.xpath("//w:body/w:tbl", namespaces=ns)
+    if len(src_tables) < args.table_index:
         print(
             (
                 "ERROR: source document has "
-                f"{len(src.tables)} table(s), but --table-index={args.table_index}"
+                f"{len(src_tables)} table(s), but --table-index={args.table_index}"
             ),
             file=sys.stderr,
         )
         return 2
 
-    table_el = copy.deepcopy(src.tables[args.table_index - 1]._element)
-    tpl = Document(args.template)
+    table_el = copy.deepcopy(src_tables[args.table_index - 1])
+
+    with zipfile.ZipFile(args.template, "r") as tpl_zip:
+        try:
+            tpl_xml = tpl_zip.read("word/document.xml")
+        except KeyError:
+            print("ERROR: template DOCX missing word/document.xml", file=sys.stderr)
+            return 2
+        tpl_entries = {name: tpl_zip.read(name) for name in tpl_zip.namelist()}
+
+    tpl_root = etree.fromstring(tpl_xml)
+    body = tpl_root.xpath("//w:body", namespaces=ns)
+    if not body:
+        print("ERROR: template DOCX has invalid document.xml (missing w:body)", file=sys.stderr)
+        return 2
+    body = body[0]
 
     target_para = None
-    for para in tpl.paragraphs:
-        if args.placeholder in para.text:
+    for para in body.xpath("./w:p", namespaces=ns):
+        para_text = "".join(para.xpath(".//w:t/text()", namespaces=ns))
+        if args.placeholder in para_text:
             target_para = para
             break
 
@@ -66,11 +93,20 @@ def main():
         )
         return 2
 
-    target_el = target_para._element
-    target_el.addprevious(table_el)
-    target_el.getparent().remove(target_el)
+    target_para.addprevious(table_el)
+    target_para.getparent().remove(target_para)
 
-    tpl.save(args.output)
+    tpl_entries["word/document.xml"] = etree.tostring(
+        tpl_root,
+        xml_declaration=True,
+        encoding="UTF-8",
+        standalone="yes",
+    )
+
+    with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_DEFLATED) as out_zip:
+        for name, data in tpl_entries.items():
+            out_zip.writestr(name, data)
+
     print(f"Done: table inserted into {args.output}")
     return 0
 
