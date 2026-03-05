@@ -46,7 +46,7 @@ add_tables <- function(
   }
 
   if (is.null(config_yaml)) {
-    config_yaml <- system.file("extdata", "config.yaml", package = "reportifyr")
+    config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
     log4r::info(.le$logger, paste0("using built-in config.yaml: ", config_yaml))
   }
 

@@ -84,7 +84,7 @@ add_footnotes <- function(
 
   fig_script <- system.file(
     "scripts/add_figure_footnotes.py",
-    package = "reportifyr"
+    package = "azreportifyr"
   )
   fig_args <- c(
     "run",
@@ -104,7 +104,7 @@ add_footnotes <- function(
   # input file should be output file from call above
   tab_script <- system.file(
     "scripts/add_table_footnotes.py",
-    package = "reportifyr"
+    package = "azreportifyr"
   )
   tab_args <- c(
     "run",
@@ -129,7 +129,7 @@ add_footnotes <- function(
   } else {
     standard_footnotes_yaml <- system.file(
       "extdata/standard_footnotes.yaml",
-      package = "reportifyr"
+      package = "azreportifyr"
     )
     log4r::info(
       .le$logger,
@@ -151,7 +151,7 @@ add_footnotes <- function(
   } else {
     config_yaml <- system.file(
       "extdata/config.yaml",
-      package = "reportifyr"
+      package = "azreportifyr"
     )
     log4r::info(
       .le$logger,

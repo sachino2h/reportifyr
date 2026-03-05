@@ -78,7 +78,7 @@ validate_docx <- function(docx_in, config_yaml) {
     magic_string <- doc_summary$text[[i]]
     parser <- system.file(
       "scripts/parse_magic_string.py",
-      package = "reportifyr"
+      package = "azreportifyr"
     )
     args <- c("run", parser, "-i", magic_string)
 

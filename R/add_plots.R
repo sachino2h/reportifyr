@@ -73,7 +73,7 @@ add_plots <- function(
 
   intermediate_figs_docx <- gsub(".docx", "-intfigs.docx", docx_out)
 
-  script <- system.file("scripts/add_figure.py", package = "reportifyr")
+  script <- system.file("scripts/add_figure.py", package = "azreportifyr")
   args <- c(
     "run",
     script,
@@ -86,7 +86,7 @@ add_plots <- function(
   )
 
   if (is.null(config_yaml)) {
-    config_yaml <- system.file("extdata", "config.yaml", package = "reportifyr")
+    config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
     log4r::info(.le$logger, paste0("using built-in config.yaml: ", config_yaml))
   }
 

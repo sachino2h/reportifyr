@@ -51,7 +51,7 @@ build_report <- function(
   log4r::debug(.le$logger, "Starting build_report function")
 
   if (is.null(config_yaml)) {
-    config_yaml <- system.file("extdata", "config.yaml", package = "reportifyr")
+    config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
     log4r::info(.le$logger, paste0("using built-in config.yaml: ", config_yaml))
   }
 

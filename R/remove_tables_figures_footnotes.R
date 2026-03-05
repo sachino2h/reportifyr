@@ -37,7 +37,7 @@ remove_tables_figures_footnotes <- function(
   paths <- get_venv_uv_paths()
   notes_script <- system.file(
     "scripts/remove_footnotes.py",
-    package = "reportifyr"
+    package = "azreportifyr"
   )
   notes_args <- c("run", notes_script, "-i", docx_in, "-o", docx_out)
 
@@ -77,7 +77,7 @@ remove_tables_figures_footnotes <- function(
   log4r::info(.le$logger, paste0("Returning stdout: ", notes_result$stdout))
   log4r::info(.le$logger, paste0("Returning stderr: ", notes_result$stderr))
 
-  tab_script <- system.file("scripts/remove_tables.py", package = "reportifyr")
+  tab_script <- system.file("scripts/remove_tables.py", package = "azreportifyr")
   tab_args <- c("run", tab_script, "-i", docx_out, "-o", docx_out)
 
   log4r::debug(.le$logger, "Running remove tables script")
@@ -117,11 +117,11 @@ remove_tables_figures_footnotes <- function(
   log4r::info(.le$logger, paste0("Returning stderr: ", tab_result$stderr))
 
   # input file is output of previous step
-  fig_script <- system.file("scripts/remove_figures.py", package = "reportifyr")
+  fig_script <- system.file("scripts/remove_figures.py", package = "azreportifyr")
   fig_args <- c("run", fig_script, "-i", docx_out, "-o", docx_out)
 
   if (is.null(config_yaml)) {
-    config_yaml <- system.file("extdata", "config.yaml", package = "reportifyr")
+    config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
   }
   fig_args <- c(fig_args, "-c", config_yaml)
   log4r::info(.le$logger, paste0("config yaml set: ", config_yaml))

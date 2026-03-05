@@ -178,7 +178,7 @@ copy_footnotes <- function(report_dir) {
     file.copy(
       from = system.file(
         "extdata/standard_footnotes.yaml",
-        package = "reportifyr"
+        package = "azreportifyr"
       ),
       to = file.path(report_dir, "standard_footnotes.yaml")
     )
@@ -221,7 +221,7 @@ copy_config <- function(report_dir, report_dir_name, outputs_dir_name) {
     file.copy(
       from = system.file(
         "extdata/config.yaml",
-        package = "reportifyr"
+        package = "azreportifyr"
       ),
       to = file.path(report_dir, "config.yaml")
     )

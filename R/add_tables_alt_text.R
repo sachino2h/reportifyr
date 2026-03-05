@@ -26,7 +26,7 @@ add_tables_alt_text <- function(
 
   log4r::info(.le$logger, paste0("Output document path set: ", docx_out))
 
-  script <- system.file("scripts/add_table_alt_text.py", package = "reportifyr")
+  script <- system.file("scripts/add_table_alt_text.py", package = "azreportifyr")
   args <- c("run", script, "-i", docx_in, "-o", docx_out)
 
   paths <- get_venv_uv_paths()

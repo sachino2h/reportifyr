@@ -76,7 +76,7 @@ remove_magic_strings <- function(docx_in, docx_out) {
 
     script <- system.file(
       "scripts/remove_magic_strings.py",
-      package = "reportifyr"
+      package = "azreportifyr"
     )
     args <- c("run", script, "-i", docx_in, "-o", docx_out)
 

@@ -22,7 +22,7 @@ validate_alt_text_magic_strings <- function(
 
   script <- system.file(
     "scripts/check_alt_text_magic.py",
-    package = "reportifyr"
+    package = "azreportifyr"
   )
   args <- c(
     "run",

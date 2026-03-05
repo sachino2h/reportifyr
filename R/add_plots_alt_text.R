@@ -28,7 +28,7 @@ add_plots_alt_text <- function(
 
   script <- system.file(
     "scripts/add_figure_alt_text.py",
-    package = "reportifyr"
+    package = "azreportifyr"
   )
   args <- c("run", script, "-i", docx_in, "-o", docx_out)
 

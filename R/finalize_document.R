@@ -60,7 +60,7 @@ finalize_document <- function(
   }
 
   if (is.null(config_yaml)) {
-    config_yaml <- system.file("extdata", "config.yaml", package = "reportifyr")
+    config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
   }
 
   validate_input_args(docx_in, docx_out)
