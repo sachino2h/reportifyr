@@ -1,20 +1,8 @@
-Package: reportifyr
+Package: azreportifyr
 Title: Reproducible Reporting Made Simple with R
 Version: 0.3.4
 Authors@R: c(
-    person("Jacob", "Dumbleton", , "jacob@a2-ai.com", role = c("aut", "cre")),
-    person("Matthew", "Smith", , "matthews@a2-ai.com", role = "aut"),
-    person("Theodoros", "Papathanasiou", , "theo.x.papathanasiou@gsk.com", role = "aut"),
-    person("Tarjinder", "Sahota", , "tarjinder.z.sahota@gsk.com", role = "aut"),
-    person("Devin", "Pastoor", , "devin@a2-ai.com", role = "aut"),
-    person("Agnes", "Kim", , "agnes@a2-ai.com", role = "aut"),
-    person("Anne", "Zheng", , "anne@a2-ai.com", role = "aut"),
-    person("Jenna", "Johnson", , "jenna@a2-ai.com", role = "aut"),
-    person("Fernando", "Carreno", , "fernando.o.carreno@gsk.com", role = "aut"),
-    person("Kashyap", "Patel", , "kashyap.x.patel@gsk.com", role = "ctb"),
-    person("Maxwell", "Chirehwa", , "maxwell.t.chirehwa@gsk.com", role = "ctb"),
-    person("Wesley", "Cummings", , "wes@a2-ai.com", role = "ctb"),
-    person("Elizabeth", "LeBeau", ,"elizabeth@a2-ai.com", role = "ctb")
+    person("Sachin", "Patel", , "sachin.patel@o2h.com", role = c("aut", "cre")),
   )
 Description: Create reproducible reports with Microsoft Word and R.
 License: GPL (>= 3)
