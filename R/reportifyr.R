@@ -58,6 +58,8 @@
 #'   figures, and footnotes associated with a magic string \{rpfy\}:object.ext
 #'   \item \code{\link{remove_magic_strings}}: Removes all magic strings from a
 #'   document cutting its tie to reportifyr but producing a final document.
+#'   \item \code{\link{replace_magic_string_text}}: Replaces a specific magic
+#'   string in a document with custom text.
 #'   \item \code{\link{remove_bookmarks}}: Removes all bookmarks from document
 #' }
 #'
