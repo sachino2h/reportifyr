@@ -82,15 +82,17 @@ def main():
     source_table_pos = src_table_positions[args.table_index - 1]
     table_el = copy.deepcopy(src_siblings[source_table_pos])
 
-    footnote_el = None
+    footnote_els = []
     if args.include_footnote:
         for el in src_siblings[source_table_pos + 1 :]:
+            # Stop once another table starts.
+            if el.tag == f"{{{w_ns}}}tbl":
+                break
             if el.tag != f"{{{w_ns}}}p":
                 continue
             para_text = "".join(el.xpath(".//w:t/text()", namespaces=ns)).strip()
             if para_text:
-                footnote_el = copy.deepcopy(el)
-                break
+                footnote_els.append(copy.deepcopy(el))
 
     with zipfile.ZipFile(args.template, "r") as tpl_zip:
         try:
@@ -122,8 +124,11 @@ def main():
         return 2
 
     target_para.addprevious(table_el)
-    if footnote_el is not None:
-        table_el.addnext(footnote_el)
+    if footnote_els:
+        anchor = table_el
+        for footnote_el in footnote_els:
+            anchor.addnext(footnote_el)
+            anchor = footnote_el
     target_para.getparent().remove(target_para)
 
     tpl_entries["word/document.xml"] = etree.tostring(
