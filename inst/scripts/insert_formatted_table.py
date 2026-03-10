@@ -84,15 +84,30 @@ def main():
 
     footnote_els = []
     if args.include_footnote:
+        footnotes_started = False
+        empty_after_start = 0
         for el in src_siblings[source_table_pos + 1 :]:
             # Stop once another table starts.
             if el.tag == f"{{{w_ns}}}tbl":
                 break
             if el.tag != f"{{{w_ns}}}p":
                 continue
-            para_text = "".join(el.xpath(".//w:t/text()", namespaces=ns)).strip()
+
+            # Include both regular text and field text.
+            para_text = "".join(
+                el.xpath(".//w:t/text() | .//w:instrText/text()", namespaces=ns)
+            ).strip()
+
             if para_text:
+                footnotes_started = True
+                empty_after_start = 0
                 footnote_els.append(copy.deepcopy(el))
+            elif footnotes_started:
+                # Allow occasional blank lines inside notes, but stop if
+                # we hit a clear break after notes started.
+                empty_after_start += 1
+                if empty_after_start >= 2:
+                    break
 
     with zipfile.ZipFile(args.template, "r") as tpl_zip:
         try:
