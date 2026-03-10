@@ -94,7 +94,7 @@ validate_docx <- function(docx_in, config_yaml) {
 
   # check for unsupported file extensions:
   unsupported_files <- file_names[
-    !(tolower(tools::file_ext(file_names)) %in% c("csv", "rds", "png"))
+    !(tolower(tools::file_ext(file_names)) %in% c("csv", "rds", "docx", "png"))
   ]
 
   if (length(unsupported_files) != 0) {
@@ -106,7 +106,7 @@ validate_docx <- function(docx_in, config_yaml) {
       log4r::error(.le$logger, message)
       stop(paste0(
         "Fix artifact extensions to continue. ",
-        "Currently .csv, .RDS are accepted for tables ",
+        "Currently .csv, .RDS, .docx are accepted for tables ",
         "and .png is accepted for figures."
       ))
     } else {

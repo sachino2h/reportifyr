@@ -28,6 +28,20 @@ test_that("validate_docx succeeds with valid docx and .csv file", {
   expect_silent(validate_docx(docx, config))
 })
 
+test_that("validate_docx succeeds with valid docx and .docx file", {
+  docx <- create_docx_with_magic_string("{rpfy}:example.docx")
+  config <- create_config_yaml(strict = TRUE)
+
+  mockery::stub(validate_docx, "file.exists", function(x) TRUE)
+  mockery::stub(validate_docx, "dir.exists", function(x) TRUE)
+  mockery::stub(validate_docx, "get_uv_path", function() "~/.local/bin/uv")
+  mockery::stub(validate_docx, "processx::run", function(...) {
+    list(stdout = jsonlite::toJSON(list("example.docx" = list())))
+  })
+
+  expect_silent(validate_docx(docx, config))
+})
+
 test_that("validate_docx errors if file extension is invalid", {
   docx <- create_docx_with_magic_string("{rpfy}:example.doc")
   config <- create_config_yaml(strict = TRUE)

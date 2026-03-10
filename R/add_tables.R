@@ -73,6 +73,7 @@ add_tables <- function(
   doc_summary <- officer::docx_summary(document)
   magic_indices <- grep(magic_pattern, doc_summary$text)
   processed_files <- c()
+  docx_table_jobs <- list()
   # find duplicated tables
   if (length(magic_indices) > 0) {
     log4r::info(
@@ -90,18 +91,26 @@ add_tables <- function(
   }
 
   for (i in magic_indices) {
+    magic_string <- doc_summary$text[[i]]
     # Remove "{rpfy}:"
-    table_name <- gsub("\\{rpfy\\}:", "", doc_summary$text[[i]]) |> trimws()
+    table_name <- gsub("\\{rpfy\\}:", "", magic_string) |> trimws()
     table_file <- file.path(tables_path, table_name)
     # check extension is valid
-    if (tolower(tools::file_ext(table_file)) %in% c("rds", "csv")) {
+    if (tolower(tools::file_ext(table_file)) %in% c("rds", "csv", "docx")) {
       # Check if the file exists
       if (file.exists(table_file)) {
         if (!(table_file %in% processed_files)) {
-          document <- process_table_file(
-            table_file,
-            document
-          )
+          if (tolower(tools::file_ext(table_file)) %in% c("rds", "csv")) {
+            document <- process_table_file(
+              table_file,
+              document
+            )
+          } else {
+            docx_table_jobs[[length(docx_table_jobs) + 1]] <- list(
+              source_docx_path = table_file,
+              placeholder_text = magic_string
+            )
+          }
           processed_files <- c(processed_files, table_file)
         } else {
           # strict mode fail - config option, deafult FALSE
@@ -121,8 +130,35 @@ add_tables <- function(
 
   print(document, target = intermediate_tabs_docx)
 
+  docx_for_alt_text <- intermediate_tabs_docx
+  intermediate_docx_table_docs <- c()
+  if (length(docx_table_jobs) > 0) {
+    for (job_index in seq_along(docx_table_jobs)) {
+      job <- docx_table_jobs[[job_index]]
+      next_docx <- gsub(
+        ".docx",
+        paste0("-intdocxtab-", job_index, ".docx"),
+        docx_out
+      )
+
+      log4r::info(
+        .le$logger,
+        paste0("Processing table file: ", job$source_docx_path)
+      )
+
+      insert_formatted_table(
+        source_docx_path = job$source_docx_path,
+        template_path = docx_for_alt_text,
+        output_path = next_docx,
+        placeholder_text = job$placeholder_text
+      )
+      intermediate_docx_table_docs <- c(intermediate_docx_table_docs, next_docx)
+      docx_for_alt_text <- next_docx
+    }
+  }
+
   add_tables_alt_text(
-    intermediate_tabs_docx,
+    docx_for_alt_text,
     docx_out
   )
 
@@ -131,6 +167,11 @@ add_tables <- function(
 
   unlink(intermediate_tabs_docx)
   log4r::debug(.le$logger, "Deleting intermediate tabs document")
+
+  if (length(intermediate_docx_table_docs) > 0) {
+    unlink(intermediate_docx_table_docs)
+    log4r::debug(.le$logger, "Deleting intermediate docx table documents")
+  }
 
   log4r::info(.le$logger, paste0("Final document saved to: ", docx_out))
   tictoc::toc()
