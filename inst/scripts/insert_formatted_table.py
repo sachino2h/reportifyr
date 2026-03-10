@@ -6,6 +6,10 @@ import sys
 from lxml import etree
 
 
+def _visible_text(el, ns):
+    return "".join(el.xpath(".//w:t/text()", namespaces=ns)).strip()
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
@@ -90,24 +94,21 @@ def main():
             # Stop once another table starts.
             if el.tag == f"{{{w_ns}}}tbl":
                 break
-            if el.tag != f"{{{w_ns}}}p":
-                continue
 
-            # Include both regular text and field text.
-            para_text = "".join(
-                el.xpath(".//w:t/text() | .//w:instrText/text()", namespaces=ns)
-            ).strip()
+            el_text = _visible_text(el, ns)
+            has_visible_text = bool(el_text)
 
-            if para_text:
+            if has_visible_text:
                 footnotes_started = True
                 empty_after_start = 0
                 footnote_els.append(copy.deepcopy(el))
             elif footnotes_started:
-                # Allow occasional blank lines inside notes, but stop if
-                # we hit a clear break after notes started.
-                empty_after_start += 1
-                if empty_after_start >= 2:
-                    break
+                # Allow a few blank paragraph lines within notes, but stop
+                # once we hit a clear break.
+                if el.tag == f"{{{w_ns}}}p":
+                    empty_after_start += 1
+                    if empty_after_start >= 3:
+                        break
 
     with zipfile.ZipFile(args.template, "r") as tpl_zip:
         try:
