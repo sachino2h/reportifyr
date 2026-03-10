@@ -10,6 +10,36 @@ def _visible_text(el, ns):
     return "".join(el.xpath(".//w:t/text()", namespaces=ns)).strip()
 
 
+def _collect_used_style_ids(elements, ns):
+    style_ids = set()
+    for el in elements:
+        style_ids.update(el.xpath(".//w:pStyle/@w:val", namespaces=ns))
+        style_ids.update(el.xpath(".//w:rStyle/@w:val", namespaces=ns))
+        style_ids.update(el.xpath(".//w:tblStyle/@w:val", namespaces=ns))
+    return {sid for sid in style_ids if sid}
+
+
+def _add_style_and_dependencies(style_id, src_styles_root, tpl_styles_root, ns):
+    style_xpath = f"./w:style[@w:styleId='{style_id}']"
+    if tpl_styles_root.xpath(style_xpath, namespaces=ns):
+        return
+
+    src_style = src_styles_root.xpath(style_xpath, namespaces=ns)
+    if not src_style:
+        return
+
+    src_style = src_style[0]
+    dep_ids = src_style.xpath(
+        "./w:basedOn/@w:val | ./w:next/@w:val | ./w:link/@w:val",
+        namespaces=ns,
+    )
+    for dep_id in dep_ids:
+        if dep_id:
+            _add_style_and_dependencies(dep_id, src_styles_root, tpl_styles_root, ns)
+
+    tpl_styles_root.append(copy.deepcopy(src_style))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
@@ -61,6 +91,7 @@ def main():
         except KeyError:
             print("ERROR: source DOCX missing word/document.xml", file=sys.stderr)
             return 2
+        src_styles_xml = src_zip.read("word/styles.xml") if "word/styles.xml" in src_zip.namelist() else None
 
     src_root = etree.fromstring(src_xml)
     src_body = src_root.xpath("//w:body", namespaces=ns)
@@ -153,6 +184,25 @@ def main():
         encoding="UTF-8",
         standalone="yes",
     )
+
+    # Preserve table/footnote look by copying missing style definitions from
+    # source DOCX into template DOCX for any styles used by inserted elements.
+    tpl_styles_xml = tpl_entries.get("word/styles.xml")
+    if src_styles_xml is not None and tpl_styles_xml is not None:
+        src_styles_root = etree.fromstring(src_styles_xml)
+        tpl_styles_root = etree.fromstring(tpl_styles_xml)
+        inserted_elements = [table_el] + footnote_els
+        used_style_ids = _collect_used_style_ids(inserted_elements, ns)
+        for style_id in sorted(used_style_ids):
+            _add_style_and_dependencies(
+                style_id, src_styles_root, tpl_styles_root, ns
+            )
+        tpl_entries["word/styles.xml"] = etree.tostring(
+            tpl_styles_root,
+            xml_declaration=True,
+            encoding="UTF-8",
+            standalone="yes",
+        )
 
     with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_DEFLATED) as out_zip:
         for name, data in tpl_entries.items():
