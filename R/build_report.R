@@ -8,6 +8,7 @@
 #' @param standard_footnotes_yaml The file path to the `standard_footnotes.yaml`. Default is `NULL`. If `NULL`, a default `standard_footnotes.yaml` bundled with the `reportifyr` package is used.
 #' @param config_yaml The file path to the `config.yaml`. Default is `NULL`, a default `config.yaml` bundled with the `reportifyr` package is used.
 #' @param add_footnotes A boolean indicating whether to insert footnotes into the `docx_in` or not. Default is `TRUE`.
+#' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
 #' @param include_object_path A boolean indicating whether to include the file path of the figure or table in the footnotes. Default is `FALSE`.
 #' @param footnotes_fail_on_missing_metadata A boolean indicating whether to stop execution if the metadata `.json` file for a figure or table is missing. Default is `TRUE`.
 #'
@@ -45,10 +46,15 @@ build_report <- function(
   standard_footnotes_yaml = NULL,
   config_yaml = NULL,
   add_footnotes = TRUE,
+  docx_footnote = FALSE,
   include_object_path = FALSE,
   footnotes_fail_on_missing_metadata = TRUE
 ) {
   log4r::debug(.le$logger, "Starting build_report function")
+  if (!is.logical(docx_footnote) || length(docx_footnote) != 1 ||
+      is.na(docx_footnote)) {
+    stop("docx_footnote must be TRUE or FALSE")
+  }
 
   if (is.null(config_yaml)) {
     config_yaml <- system.file("extdata", "config.yaml", package = "azreportifyr")
@@ -79,7 +85,8 @@ build_report <- function(
     docx_in = doc_dirs$doc_clean,
     docx_out = doc_dirs$doc_tables,
     tables_path = tables_path,
-    config_yaml
+    config_yaml = config_yaml,
+    docx_footnote = docx_footnote
   )
 
   if (add_footnotes) {

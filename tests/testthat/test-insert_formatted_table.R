@@ -68,3 +68,22 @@ test_that("insert_formatted_table validates table_index", {
     "table_index must be a positive integer"
   )
 })
+
+test_that("insert_formatted_table validates include_footnote", {
+  source <- withr::local_tempfile(fileext = ".docx")
+  file.create(source)
+  template <- withr::local_tempfile(fileext = ".docx")
+  file.create(template)
+  output <- withr::local_tempfile(fileext = ".docx")
+
+  expect_error(
+    insert_formatted_table(
+      source_docx_path = source,
+      template_path = template,
+      output_path = output,
+      placeholder_text = "{rpfy}:table.csv",
+      include_footnote = "yes"
+    ),
+    "include_footnote must be TRUE or FALSE"
+  )
+})

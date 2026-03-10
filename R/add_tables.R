@@ -5,6 +5,7 @@
 #' @param docx_out The file path to the output `.docx` file to save to.
 #' @param tables_path The file path to the tables and associated metadata directory.
 #' @param config_yaml The file path to the `config.yaml`. Default is `NULL`, a default `config.yaml` bundled with the `reportifyr` package is used.
+#' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
 #' @param debug Debug.
 #'
 #' @export
@@ -35,6 +36,7 @@ add_tables <- function(
   docx_out,
   tables_path,
   config_yaml = NULL,
+  docx_footnote = FALSE,
   debug = FALSE
 ) {
   log4r::debug(.le$logger, "Starting add_tables function")
@@ -43,6 +45,10 @@ add_tables <- function(
   if (debug) {
     log4r::debug(.le$logger, "Debug mode enabled")
     browser()
+  }
+  if (!is.logical(docx_footnote) || length(docx_footnote) != 1 ||
+      is.na(docx_footnote)) {
+    stop("docx_footnote must be TRUE or FALSE")
   }
 
   if (is.null(config_yaml)) {
@@ -150,7 +156,8 @@ add_tables <- function(
         source_docx_path = job$source_docx_path,
         template_path = docx_for_alt_text,
         output_path = next_docx,
-        placeholder_text = job$placeholder_text
+        placeholder_text = job$placeholder_text,
+        include_footnote = docx_footnote
       )
       intermediate_docx_table_docs <- c(intermediate_docx_table_docs, next_docx)
       docx_for_alt_text <- next_docx

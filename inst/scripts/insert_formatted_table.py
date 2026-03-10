@@ -30,6 +30,14 @@ def parse_args():
         default=1,
         help="1-based table index from source DOCX (default: 1)",
     )
+    parser.add_argument(
+        "--include-footnote",
+        action="store_true",
+        help=(
+            "If set, copy the first non-empty paragraph after the selected "
+            "source table and insert it after the table."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -51,18 +59,38 @@ def main():
             return 2
 
     src_root = etree.fromstring(src_xml)
-    src_tables = src_root.xpath("//w:body/w:tbl", namespaces=ns)
-    if len(src_tables) < args.table_index:
+    src_body = src_root.xpath("//w:body", namespaces=ns)
+    if not src_body:
+        print("ERROR: source DOCX has invalid document.xml (missing w:body)", file=sys.stderr)
+        return 2
+    src_body = src_body[0]
+
+    src_siblings = src_body.xpath("./*", namespaces=ns)
+    src_table_positions = [
+        idx for idx, el in enumerate(src_siblings) if el.tag == f"{{{w_ns}}}tbl"
+    ]
+    if len(src_table_positions) < args.table_index:
         print(
             (
                 "ERROR: source document has "
-                f"{len(src_tables)} table(s), but --table-index={args.table_index}"
+                f"{len(src_table_positions)} table(s), but --table-index={args.table_index}"
             ),
             file=sys.stderr,
         )
         return 2
 
-    table_el = copy.deepcopy(src_tables[args.table_index - 1])
+    source_table_pos = src_table_positions[args.table_index - 1]
+    table_el = copy.deepcopy(src_siblings[source_table_pos])
+
+    footnote_el = None
+    if args.include_footnote:
+        for el in src_siblings[source_table_pos + 1 :]:
+            if el.tag != f"{{{w_ns}}}p":
+                continue
+            para_text = "".join(el.xpath(".//w:t/text()", namespaces=ns)).strip()
+            if para_text:
+                footnote_el = copy.deepcopy(el)
+                break
 
     with zipfile.ZipFile(args.template, "r") as tpl_zip:
         try:
@@ -94,6 +122,8 @@ def main():
         return 2
 
     target_para.addprevious(table_el)
+    if footnote_el is not None:
+        table_el.addnext(footnote_el)
     target_para.getparent().remove(target_para)
 
     tpl_entries["word/document.xml"] = etree.tostring(

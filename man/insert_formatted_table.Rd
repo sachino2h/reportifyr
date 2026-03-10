@@ -10,6 +10,7 @@ insert_formatted_table(
   output_path,
   placeholder_text,
   table_index = 1,
+  include_footnote = FALSE,
   debug = FALSE
 )
 }
@@ -24,6 +25,10 @@ insert_formatted_table(
 
 \item{table_index}{1-based index of the table in \code{source_docx_path}.
 Default is \code{1}.}
+
+\item{include_footnote}{A boolean indicating whether to copy the first
+paragraph after the source table and insert it as footnote text.
+Default is \code{FALSE}.}
 
 \item{debug}{Debug.}
 }

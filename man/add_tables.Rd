@@ -4,7 +4,14 @@
 \alias{add_tables}
 \title{Inserts Tables in appropriate places in a Microsoft Word file}
 \usage{
-add_tables(docx_in, docx_out, tables_path, config_yaml = NULL, debug = FALSE)
+add_tables(
+  docx_in,
+  docx_out,
+  tables_path,
+  config_yaml = NULL,
+  docx_footnote = FALSE,
+  debug = FALSE
+)
 }
 \arguments{
 \item{docx_in}{The file path to the input \code{.docx} file.}
@@ -14,6 +21,8 @@ add_tables(docx_in, docx_out, tables_path, config_yaml = NULL, debug = FALSE)
 \item{tables_path}{The file path to the tables and associated metadata directory.}
 
 \item{config_yaml}{The file path to the \code{config.yaml}. Default is \code{NULL}, a default \code{config.yaml} bundled with the \code{reportifyr} package is used.}
+
+\item{docx_footnote}{A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is \code{FALSE}.}
 
 \item{debug}{Debug.}
 }

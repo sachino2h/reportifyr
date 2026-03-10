@@ -2,6 +2,7 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
   calls <- new.env(parent = emptyenv())
   calls$insert <- 0L
   calls$process <- 0L
+  calls$include_footnote <- NULL
   calls$alt_text_input <- NULL
   calls$alt_text_output <- NULL
 
@@ -17,8 +18,16 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
     calls$process <- calls$process + 1L
     structure(list(), class = "rdocx")
   })
-  mockery::stub(add_tables, "insert_formatted_table", function(...) {
+  mockery::stub(add_tables, "insert_formatted_table", function(
+    source_docx_path,
+    template_path,
+    output_path,
+    placeholder_text,
+    include_footnote = FALSE,
+    ...
+  ) {
     calls$insert <- calls$insert + 1L
+    calls$include_footnote <- include_footnote
     invisible(NULL)
   })
   mockery::stub(add_tables, "print", function(...) invisible(NULL))
@@ -33,12 +42,14 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
     add_tables(
       docx_in = "input.docx",
       docx_out = "output.docx",
-      tables_path = "tables"
+      tables_path = "tables",
+      docx_footnote = TRUE
     )
   )
 
   expect_equal(calls$insert, 1L)
   expect_equal(calls$process, 0L)
+  expect_true(calls$include_footnote)
   expect_true(grepl("-intdocxtab-1\\.docx$", calls$alt_text_input))
   expect_equal(calls$alt_text_output, "output.docx")
 })

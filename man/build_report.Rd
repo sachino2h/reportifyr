@@ -12,6 +12,7 @@ build_report(
   standard_footnotes_yaml = NULL,
   config_yaml = NULL,
   add_footnotes = TRUE,
+  docx_footnote = FALSE,
   include_object_path = FALSE,
   footnotes_fail_on_missing_metadata = TRUE
 )
@@ -30,6 +31,8 @@ build_report(
 \item{config_yaml}{The file path to the \code{config.yaml}. Default is \code{NULL}, a default \code{config.yaml} bundled with the \code{reportifyr} package is used.}
 
 \item{add_footnotes}{A boolean indicating whether to insert footnotes into the \code{docx_in} or not. Default is \code{TRUE}.}
+
+\item{docx_footnote}{A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is \code{FALSE}.}
 
 \item{include_object_path}{A boolean indicating whether to include the file path of the figure or table in the footnotes. Default is \code{FALSE}.}
 

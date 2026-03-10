@@ -11,6 +11,9 @@
 #' @param placeholder_text Placeholder text to replace.
 #' @param table_index 1-based index of the table in `source_docx_path`.
 #'   Default is `1`.
+#' @param include_footnote A boolean indicating whether to copy the first
+#'   paragraph after the source table and insert it as footnote text.
+#'   Default is `FALSE`.
 #' @param debug Debug.
 #'
 #' @return Invisibly returns `output_path`.
@@ -31,6 +34,7 @@ insert_formatted_table <- function(
   output_path,
   placeholder_text,
   table_index = 1,
+  include_footnote = FALSE,
   debug = FALSE
 ) {
   log4r::debug(.le$logger, "Starting insert_formatted_table function")
@@ -60,6 +64,10 @@ insert_formatted_table <- function(
       is.na(table_index) || table_index < 1 || table_index %% 1 != 0) {
     stop("table_index must be a positive integer (1-based)")
   }
+  if (!is.logical(include_footnote) || length(include_footnote) != 1 ||
+      is.na(include_footnote)) {
+    stop("include_footnote must be TRUE or FALSE")
+  }
 
   if (!file.exists(source_docx_path)) {
     stop(paste("The source document does not exist:", source_docx_path))
@@ -86,6 +94,9 @@ insert_formatted_table <- function(
     "-p", placeholder_text,
     "--table-index", as.character(as.integer(table_index))
   )
+  if (isTRUE(include_footnote)) {
+    args <- c(args, "--include-footnote")
+  }
 
   paths <- get_venv_uv_paths()
 
