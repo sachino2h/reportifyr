@@ -11,6 +11,11 @@
 #' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
 #' @param include_object_path A boolean indicating whether to include the file path of the figure or table in the footnotes. Default is `FALSE`.
 #' @param footnotes_fail_on_missing_metadata A boolean indicating whether to stop execution if the metadata `.json` file for a figure or table is missing. Default is `TRUE`.
+#' @param docx_table_style Optional styling to apply to inserted `.docx` table
+#'   artifacts. This can be a single named list with fields
+#'   `header_fill`, `header_bold`, `font_family`, `font_size`, and
+#'   `header_rows`, or a list with `default` and `per_table` entries where
+#'   `per_table` is keyed by table file name.
 #'
 #' @export
 #'
@@ -48,7 +53,8 @@ build_report <- function(
   add_footnotes = TRUE,
   docx_footnote = FALSE,
   include_object_path = FALSE,
-  footnotes_fail_on_missing_metadata = TRUE
+  footnotes_fail_on_missing_metadata = TRUE,
+  docx_table_style = NULL
 ) {
   log4r::debug(.le$logger, "Starting build_report function")
   if (!is.logical(docx_footnote) || length(docx_footnote) != 1 ||
@@ -86,7 +92,8 @@ build_report <- function(
     docx_out = doc_dirs$doc_tables,
     tables_path = tables_path,
     config_yaml = config_yaml,
-    docx_footnote = docx_footnote
+    docx_footnote = docx_footnote,
+    docx_table_style = docx_table_style
   )
 
   if (add_footnotes) {

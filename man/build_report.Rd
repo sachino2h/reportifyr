@@ -14,7 +14,8 @@ build_report(
   add_footnotes = TRUE,
   docx_footnote = FALSE,
   include_object_path = FALSE,
-  footnotes_fail_on_missing_metadata = TRUE
+  footnotes_fail_on_missing_metadata = TRUE,
+  docx_table_style = NULL
 )
 }
 \arguments{
@@ -37,6 +38,13 @@ build_report(
 \item{include_object_path}{A boolean indicating whether to include the file path of the figure or table in the footnotes. Default is \code{FALSE}.}
 
 \item{footnotes_fail_on_missing_metadata}{A boolean indicating whether to stop execution if the metadata \code{.json} file for a figure or table is missing. Default is \code{TRUE}.}
+
+\item{docx_table_style}{Optional styling to apply to inserted \code{.docx} table
+artifacts. This can be a single named list with fields
+\code{header_fill}, \code{header_bold}, \code{font_family},
+\code{font_size}, and \code{header_rows}, or a list with
+\code{default} and \code{per_table} entries where \code{per_table} is
+keyed by table file name.}
 }
 \description{
 Reads in a \code{.docx} file and returns a new version with plots, tables, and footnotes replaced.

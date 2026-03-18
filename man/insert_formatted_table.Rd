@@ -11,7 +11,8 @@ insert_formatted_table(
   placeholder_text,
   table_index = 1,
   include_footnote = FALSE,
-  debug = FALSE
+  debug = FALSE,
+  docx_table_style = NULL
 )
 }
 \arguments{
@@ -29,6 +30,10 @@ Default is \code{1}.}
 \item{include_footnote}{A boolean indicating whether to copy the first
 paragraph after the source table and insert it as footnote text.
 Default is \code{FALSE}.}
+
+\item{docx_table_style}{Optional styling to apply to the inserted table.
+Supported fields are \code{header_fill}, \code{header_bold},
+\code{font_family}, \code{font_size}, and \code{header_rows}.}
 
 \item{debug}{Debug.}
 }

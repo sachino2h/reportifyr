@@ -14,6 +14,9 @@
 #' @param include_footnote A boolean indicating whether to copy the first
 #'   paragraph after the source table and insert it as footnote text.
 #'   Default is `FALSE`.
+#' @param docx_table_style Optional styling to apply to the inserted table.
+#'   Supported fields are `header_fill`, `header_bold`, `font_family`,
+#'   `font_size`, and `header_rows`.
 #' @param debug Debug.
 #'
 #' @return Invisibly returns `output_path`.
@@ -35,7 +38,8 @@ insert_formatted_table <- function(
   placeholder_text,
   table_index = 1,
   include_footnote = FALSE,
-  debug = FALSE
+  debug = FALSE,
+  docx_table_style = NULL
 ) {
   log4r::debug(.le$logger, "Starting insert_formatted_table function")
   tictoc::tic()
@@ -68,6 +72,7 @@ insert_formatted_table <- function(
       is.na(include_footnote)) {
     stop("include_footnote must be TRUE or FALSE")
   }
+  docx_table_style <- normalize_docx_table_style(docx_table_style)
 
   if (!file.exists(source_docx_path)) {
     stop(paste("The source document does not exist:", source_docx_path))
@@ -96,6 +101,13 @@ insert_formatted_table <- function(
   )
   if (isTRUE(include_footnote)) {
     args <- c(args, "--include-footnote")
+  }
+  if (!is.null(docx_table_style)) {
+    args <- c(
+      args,
+      "--style-json",
+      jsonlite::toJSON(docx_table_style, auto_unbox = TRUE)
+    )
   }
 
   paths <- get_venv_uv_paths()

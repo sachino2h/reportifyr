@@ -6,6 +6,11 @@
 #' @param tables_path The file path to the tables and associated metadata directory.
 #' @param config_yaml The file path to the `config.yaml`. Default is `NULL`, a default `config.yaml` bundled with the `reportifyr` package is used.
 #' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
+#' @param docx_table_style Optional styling to apply to inserted `.docx` table
+#'   artifacts. This can be a single named list with fields
+#'   `header_fill`, `header_bold`, `font_family`, `font_size`, and
+#'   `header_rows`, or a list with `default` and `per_table` entries where
+#'   `per_table` is keyed by table file name.
 #' @param debug Debug.
 #'
 #' @export
@@ -37,7 +42,8 @@ add_tables <- function(
   tables_path,
   config_yaml = NULL,
   docx_footnote = FALSE,
-  debug = FALSE
+  debug = FALSE,
+  docx_table_style = NULL
 ) {
   log4r::debug(.le$logger, "Starting add_tables function")
   tictoc::tic()
@@ -114,7 +120,11 @@ add_tables <- function(
           } else {
             docx_table_jobs[[length(docx_table_jobs) + 1]] <- list(
               source_docx_path = table_file,
-              placeholder_text = magic_string
+              placeholder_text = magic_string,
+              docx_table_style = normalize_docx_table_style(
+                docx_table_style,
+                table_file
+              )
             )
           }
           processed_files <- c(processed_files, table_file)
@@ -157,7 +167,8 @@ add_tables <- function(
         template_path = docx_for_alt_text,
         output_path = next_docx,
         placeholder_text = job$placeholder_text,
-        include_footnote = docx_footnote
+        include_footnote = docx_footnote,
+        docx_table_style = job$docx_table_style
       )
       intermediate_docx_table_docs <- c(intermediate_docx_table_docs, next_docx)
       docx_for_alt_text <- next_docx

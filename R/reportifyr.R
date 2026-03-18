@@ -60,6 +60,8 @@
 #'   document cutting its tie to reportifyr but producing a final document.
 #'   \item \code{\link{replace_magic_string_text}}: Replaces a specific magic
 #'   string in a document with custom text.
+#'   \item \code{\link{extract_magic_strings}}: Extracts user-supplied regex
+#'   pattern matches from a document.
 #'   \item \code{\link{remove_bookmarks}}: Removes all bookmarks from document
 #' }
 #'

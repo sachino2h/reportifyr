@@ -3,6 +3,7 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
   calls$insert <- 0L
   calls$process <- 0L
   calls$include_footnote <- NULL
+  calls$table_style <- NULL
   calls$alt_text_input <- NULL
   calls$alt_text_output <- NULL
 
@@ -24,10 +25,12 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
     output_path,
     placeholder_text,
     include_footnote = FALSE,
+    docx_table_style = NULL,
     ...
   ) {
     calls$insert <- calls$insert + 1L
     calls$include_footnote <- include_footnote
+    calls$table_style <- docx_table_style
     invisible(NULL)
   })
   mockery::stub(add_tables, "print", function(...) invisible(NULL))
@@ -43,13 +46,29 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
       docx_in = "input.docx",
       docx_out = "output.docx",
       tables_path = "tables",
-      docx_footnote = TRUE
+      docx_footnote = TRUE,
+      docx_table_style = list(
+        default = list(
+          font_family = "Times New Roman",
+          font_size = 10,
+          header_fill = "#D9EAF7",
+          header_bold = TRUE
+        ),
+        per_table = list(
+          "table1.docx" = list(header_rows = 2)
+        )
+      )
     )
   )
 
   expect_equal(calls$insert, 1L)
   expect_equal(calls$process, 0L)
   expect_true(calls$include_footnote)
+  expect_equal(calls$table_style$font_family, "Times New Roman")
+  expect_equal(calls$table_style$font_size, 10)
+  expect_equal(calls$table_style$header_fill, "D9EAF7")
+  expect_true(calls$table_style$header_bold)
+  expect_equal(calls$table_style$header_rows, 2L)
   expect_true(grepl("-intdocxtab-1\\.docx$", calls$alt_text_input))
   expect_equal(calls$alt_text_output, "output.docx")
 })

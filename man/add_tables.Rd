@@ -10,7 +10,8 @@ add_tables(
   tables_path,
   config_yaml = NULL,
   docx_footnote = FALSE,
-  debug = FALSE
+  debug = FALSE,
+  docx_table_style = NULL
 )
 }
 \arguments{
@@ -23,6 +24,13 @@ add_tables(
 \item{config_yaml}{The file path to the \code{config.yaml}. Default is \code{NULL}, a default \code{config.yaml} bundled with the \code{reportifyr} package is used.}
 
 \item{docx_footnote}{A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is \code{FALSE}.}
+
+\item{docx_table_style}{Optional styling to apply to inserted \code{.docx} table
+artifacts. This can be a single named list with fields
+\code{header_fill}, \code{header_bold}, \code{font_family},
+\code{font_size}, and \code{header_rows}, or a list with
+\code{default} and \code{per_table} entries where \code{per_table} is
+keyed by table file name.}
 
 \item{debug}{Debug.}
 }
