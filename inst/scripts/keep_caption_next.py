@@ -18,7 +18,7 @@ def keep_caption_next(docx_in, docx_out):
         is_caption = (
             (p.style and p.style.name == CAPTION_STYLE) or
             any(
-                ("SEQ Table" in instr.text or "SEQ Figure" in instr.text)
+                ("SEQ Table" in (instr.text or "") or "SEQ Figure" in (instr.text or ""))
                 for instr in p._element.xpath(".//w:instrText")
             )
         )
@@ -33,8 +33,9 @@ def keep_caption_next(docx_in, docx_out):
         # scan forward for first paragraph with magic string
         for j in range(i + 1, n):
             q = paras[j]
+            q_text = "".join((t.text or "") for t in q._element.xpath(".//w:t"))
             has_magic = bool(
-                magic_pattern.search("".join(t.text for t in q._element.xpath(".//w:t")))
+                magic_pattern.search(q_text)
             )
             if has_magic:
                 qPr = q._element.get_or_add_pPr()
