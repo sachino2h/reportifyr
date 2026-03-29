@@ -10,6 +10,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.shared import Inches
 from docx.shared import Pt
+from docx.shared import RGBColor
 from docx.text.paragraph import Paragraph
 
 import helper
@@ -22,6 +23,7 @@ GENERIC_BLOCK_PATTERN = re.compile(r"<<([^<>:|]+)>>")
 EXPANDED_BLOCK_PATTERN = re.compile(r"<<([^<>]+\|[^<>]+)>>")
 VALID_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff"}
 VALID_TABLE_EXT = {".csv", ".rds", ".docx"}
+MISSING_PATTERN = re.compile(r"^MISSING_VALUE\(.+\)$", re.IGNORECASE)
 
 
 def normalize_key(value):
@@ -55,6 +57,10 @@ def add_hidden_marker(paragraph, text):
     run.font.hidden = True
 
 
+def is_missing_token(text):
+    return bool(MISSING_PATTERN.match(str(text or "").strip()))
+
+
 def insert_run_after(paragraph, anchor_run, text, hidden=False, style_from_run=None):
     new_run = paragraph.add_run(text)
 
@@ -78,12 +84,22 @@ def add_title_run(paragraph, title_text):
     run = paragraph.add_run(title_text)
     run.bold = True
     run.font.size = Pt(12)
+    if is_missing_token(title_text):
+        run.font.color.rgb = RGBColor(255, 0, 0)
     return run
 
 
 def add_footnote_run(paragraph, footnote_text):
     run = paragraph.add_run(footnote_text)
     run.font.size = Pt(10)
+    if is_missing_token(footnote_text):
+        run.font.color.rgb = RGBColor(255, 0, 0)
+    return run
+
+
+def add_missing_run(paragraph, text):
+    run = paragraph.add_run(text)
+    run.font.color.rgb = RGBColor(255, 0, 0)
     return run
 
 
@@ -184,6 +200,8 @@ def paragraph_replace_inline(paragraph, inline_map, inline_seen):
             hidden=False,
             style_from_run=runs[start_run]
         )
+        if is_missing_token(repl):
+            v_run.font.color.rgb = RGBColor(255, 0, 0)
         h_end = insert_run_after(
             paragraph,
             v_run,
@@ -599,6 +617,13 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
                     ),
                 )
                 anchor = image_para
+            if len(resolved_images) == 0:
+                missing_files = [f for f in files if is_missing_token(f)]
+                if missing_files:
+                    image_para = insert_paragraph_after(anchor)
+                    image_para.alignment = resolve_alignment(config)
+                    add_missing_run(image_para, ", ".join(missing_files))
+                    anchor = image_para
             add_hidden_marker(anchor, marker_text("IMAGE_END", block_id))
         else:
             # Extended table tags are matched as <<table:name>> (or expanded Type:table).
@@ -616,6 +641,13 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
                 table_file_for_marker = placeholder_file
                 # Keep anchor at placeholder so footnote is placed after rendered table.
                 anchor = table_para
+            else:
+                missing_files = [f for f in files if is_missing_token(f)]
+                if missing_files:
+                    miss_para = insert_paragraph_after(anchor)
+                    miss_para.style = paragraph.style
+                    add_missing_run(miss_para, ", ".join(missing_files))
+                    anchor = miss_para
 
         foot_para = insert_paragraph_after(anchor)
         add_hidden_marker(foot_para, marker_text("FOOTNOTE_START", block_id))
