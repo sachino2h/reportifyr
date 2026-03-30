@@ -237,6 +237,48 @@ def paragraph_replace_inline(paragraph, inline_map, inline_seen):
             pos = end
 
 
+def paragraph_replace_inline_text_nodes_only(paragraph, inline_map):
+    # Fallback pass for field/hyperlink areas where python-docx run handling can
+    # miss visible text nodes (for example TOC/TOF/pagination result text).
+    text_nodes = paragraph._element.xpath(".//w:t")
+    if not text_nodes:
+        return
+
+    parts = [(node.text or "") for node in text_nodes]
+    original = "".join(parts)
+    if not original:
+        return
+
+    def repl(match):
+        key = (match.group(1) or match.group(2) or "").strip()
+        entry = (
+            inline_map.get(key)
+            or inline_map.get(normalize_key(key))
+            or inline_map.get(canonical_key(key))
+        )
+        if isinstance(entry, dict):
+            value = str(entry.get("value", ""))
+        elif entry is None:
+            value = ""
+        else:
+            value = str(entry)
+        return value
+
+    updated = INLINE_PATTERN.sub(repl, original)
+    if updated == original:
+        return
+
+    lengths = [len(p) for p in parts]
+    pos = 0
+    for i, node in enumerate(text_nodes):
+        if i < len(text_nodes) - 1:
+            take = lengths[i]
+            node.text = updated[pos : pos + take]
+            pos += take
+        else:
+            node.text = updated[pos:]
+
+
 def parse_expanded_block(raw_content):
     # Expected: Name:...|Title:...|Footnote:...|Files:...|Type:...
     parts = [p.strip() for p in raw_content.split("|")]
@@ -559,6 +601,7 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
     inline_seen = {}
     for paragraph in list(iter_all_paragraphs(doc)):
         paragraph_replace_inline(paragraph, inline_map, inline_seen)
+        paragraph_replace_inline_text_nodes_only(paragraph, inline_map)
 
     # Block rendering next.
     for paragraph in list(iter_all_paragraphs(doc)):
