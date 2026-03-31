@@ -16,7 +16,10 @@
 #'   Default is `FALSE`.
 #' @param docx_table_style Optional styling to apply to the inserted table.
 #'   Supported fields are `header_fill`, `header_bold`, `font_family`,
-#'   `font_size`, and `header_rows`.
+#'   `font_size`, `header_rows`, `extract_table_footnotes`,
+#'   `header_paragraph_style`,
+#'   `split_row_paragraph_style`, `first_column_paragraph_style`,
+#'   `body_paragraph_style`, and `footnote_paragraph_style`.
 #' @param debug Debug.
 #'
 #' @return Invisibly returns `output_path`.

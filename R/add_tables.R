@@ -8,9 +8,12 @@
 #' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
 #' @param docx_table_style Optional styling to apply to inserted `.docx` table
 #'   artifacts. This can be a single named list with fields
-#'   `header_fill`, `header_bold`, `font_family`, `font_size`, and
-#'   `header_rows`, or a list with `default` and `per_table` entries where
-#'   `per_table` is keyed by table file name.
+#'   `header_fill`, `header_bold`, `font_family`, `font_size`, `header_rows`,
+#'   `extract_table_footnotes`,
+#'   `header_paragraph_style`, `split_row_paragraph_style`,
+#'   `first_column_paragraph_style`, `body_paragraph_style`, and
+#'   `footnote_paragraph_style`, or a list with `default` and `per_table`
+#'   entries where `per_table` is keyed by table file name.
 #' @param debug Debug.
 #'
 #' @export

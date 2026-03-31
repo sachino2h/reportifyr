@@ -200,6 +200,13 @@ def _set_run_font(run_el, font_family=None, font_size=None, bold=None):
             bold_el.set(_w_attr("val"), bold_val)
 
 
+def _clear_run_properties(run_el):
+    r_pr = run_el.find(f"./{_w_tag('rPr')}")
+    if r_pr is None:
+        return
+    run_el.remove(r_pr)
+
+
 def _set_cell_fill(cell_el, fill):
     tc_pr = _get_or_create_child(cell_el, "tcPr", prepend=True)
     shd = _get_or_create_child(tc_pr, "shd")
@@ -208,31 +215,245 @@ def _set_cell_fill(cell_el, fill):
     shd.set(_w_attr("fill"), fill)
 
 
-def _apply_table_style(table_el, table_style):
+def _set_paragraph_style(para_el, style_id, clear_direct_formatting=False):
+    if not style_id:
+        return
+
+    if clear_direct_formatting:
+        old_p_pr = para_el.find(f"./{_w_tag('pPr')}")
+        if old_p_pr is not None:
+            para_el.remove(old_p_pr)
+
+    p_pr = _get_or_create_child(para_el, "pPr", prepend=True)
+    p_style = _get_or_create_child(p_pr, "pStyle", prepend=True)
+    p_style.set(_w_attr("val"), style_id)
+
+
+def _apply_cell_paragraph_style(cell_el, style_id):
+    if not style_id:
+        return
+
+    for para_el in cell_el.findall(f"./{_w_tag('p')}"):
+        _set_paragraph_style(
+            para_el,
+            style_id,
+            clear_direct_formatting=True,
+        )
+
+
+def _get_table_col_count(table_el):
+    return len(table_el.findall(f"./{_w_tag('tblGrid')}/{_w_tag('gridCol')}"))
+
+
+def _row_total_span(row_el):
+    total = 0
+    for cell_el in row_el.findall(f"./{_w_tag('tc')}"):
+        tc_pr = cell_el.find(f"./{_w_tag('tcPr')}")
+        if tc_pr is None:
+            total += 1
+            continue
+
+        grid_span = tc_pr.find(f"./{_w_tag('gridSpan')}")
+        if grid_span is None:
+            total += 1
+            continue
+
+        span_val = _parse_int(grid_span.get(_w_attr("val")))
+        total += span_val if span_val is not None and span_val > 0 else 1
+    return total
+
+
+def _row_has_tbl_header(row_el):
+    return row_el.find(f"./{_w_tag('trPr')}/{_w_tag('tblHeader')}") is not None
+
+
+def _compute_row_meta(rows, n_cols, header_rows):
+    row_meta = []
+    for row_index, row_el in enumerate(rows):
+        is_header_by_marker = _row_has_tbl_header(row_el)
+        is_header_row = is_header_by_marker or row_index < header_rows
+        total_span = _row_total_span(row_el)
+        n_cells = len(row_el.findall(f"./{_w_tag('tc')}"))
+        is_full_width = n_cells == 1 or (n_cols > 0 and total_span == n_cols)
+        row_meta.append(
+            {
+                "row_index": row_index,
+                "is_header_row": is_header_row,
+                "is_full_width": is_full_width,
+            }
+        )
+
+    data_row_indices = [
+        r["row_index"] for r in row_meta
+        if not r["is_header_row"] and not r["is_full_width"]
+    ]
+    last_data_row = max(data_row_indices) if data_row_indices else -1
+    return row_meta, last_data_row
+
+
+def _extract_style_lookup(styles_xml):
+    lookup = {}
+    if not styles_xml:
+        return lookup
+
+    try:
+        root = etree.fromstring(styles_xml)
+    except etree.XMLSyntaxError:
+        return lookup
+
+    for style_el in root.findall(f".//{_w_tag('style')}"):
+        if style_el.get(_w_attr("type")) != "paragraph":
+            continue
+        style_id = style_el.get(_w_attr("styleId"))
+        if not style_id:
+            continue
+
+        lookup[style_id.strip().lower()] = style_id
+        name_el = style_el.find(f"./{_w_tag('name')}")
+        if name_el is not None:
+            name_val = name_el.get(_w_attr("val"))
+            if name_val and name_val.strip():
+                lookup[name_val.strip().lower()] = style_id
+
+    return lookup
+
+
+def _resolve_paragraph_style_id(style_value, style_lookup):
+    if style_value is None:
+        return None
+    value = str(style_value).strip()
+    if not value:
+        return None
+    return style_lookup.get(value.lower(), value)
+
+
+def _apply_table_style(table_el, table_style, style_lookup=None):
     if not table_style:
         return
+    if style_lookup is None:
+        style_lookup = {}
 
     font_family = table_style.get("font_family")
     font_size = table_style.get("font_size")
     header_fill = table_style.get("header_fill")
     header_bold = table_style.get("header_bold")
     header_rows = int(table_style.get("header_rows", 1) or 0)
+    header_para_style = _resolve_paragraph_style_id(
+        table_style.get("header_paragraph_style"),
+        style_lookup,
+    )
+    split_para_style = _resolve_paragraph_style_id(
+        table_style.get("split_row_paragraph_style"),
+        style_lookup,
+    )
+    first_col_para_style = _resolve_paragraph_style_id(
+        table_style.get("first_column_paragraph_style"),
+        style_lookup,
+    )
+    body_para_style = _resolve_paragraph_style_id(
+        table_style.get("body_paragraph_style"),
+        style_lookup,
+    )
+    footnote_para_style = _resolve_paragraph_style_id(
+        table_style.get("footnote_paragraph_style"),
+        style_lookup,
+    )
 
     rows = table_el.findall(f"./{_w_tag('tr')}")
-    for row_index, row_el in enumerate(rows):
-        is_header_row = row_index < header_rows
+    n_cols = _get_table_col_count(table_el)
+    row_meta, last_data_row = _compute_row_meta(rows, n_cols, header_rows)
 
-        for cell_el in row_el.findall(f"./{_w_tag('tc')}"):
+    for row_index, row_el in enumerate(rows):
+        meta = row_meta[row_index]
+        is_header_row = meta["is_header_row"]
+        is_full_width = meta["is_full_width"]
+
+        if is_header_row:
+            row_para_style = header_para_style
+        elif is_full_width:
+            row_para_style = footnote_para_style if row_index > last_data_row else split_para_style
+        else:
+            row_para_style = None
+
+        cells = row_el.findall(f"./{_w_tag('tc')}")
+        for cell_index, cell_el in enumerate(cells):
             if is_header_row and header_fill:
                 _set_cell_fill(cell_el, header_fill)
 
+            applied_para_style = False
+            if row_para_style:
+                _apply_cell_paragraph_style(cell_el, row_para_style)
+                applied_para_style = True
+            elif (not is_header_row) and (not is_full_width):
+                if cell_index == 0:
+                    _apply_cell_paragraph_style(cell_el, first_col_para_style)
+                    applied_para_style = bool(first_col_para_style)
+                else:
+                    _apply_cell_paragraph_style(cell_el, body_para_style)
+                    applied_para_style = bool(body_para_style)
+
             for run_el in cell_el.xpath(".//w:r", namespaces=NS):
+                if applied_para_style:
+                    # Ensure paragraph style is not shown with direct run-font
+                    # overrides such as "+ Calibri" in Word style inspector.
+                    _clear_run_properties(run_el)
                 _set_run_font(
                     run_el,
                     font_family=font_family,
                     font_size=font_size,
                     bold=header_bold if is_header_row else None,
                 )
+
+
+def _extract_table_footnote_paragraphs(table_el, table_style, style_lookup=None):
+    if not table_style or not bool(table_style.get("extract_table_footnotes", False)):
+        return []
+
+    if style_lookup is None:
+        style_lookup = {}
+
+    header_rows = int(table_style.get("header_rows", 1) or 0)
+    footnote_para_style = _resolve_paragraph_style_id(
+        table_style.get("footnote_paragraph_style"),
+        style_lookup,
+    )
+
+    rows = table_el.findall(f"./{_w_tag('tr')}")
+    n_cols = _get_table_col_count(table_el)
+    row_meta, last_data_row = _compute_row_meta(rows, n_cols, header_rows)
+
+    footnote_rows = [
+        rows[m["row_index"]]
+        for m in row_meta
+        if (not m["is_header_row"]) and m["is_full_width"] and m["row_index"] > last_data_row
+    ]
+    if not footnote_rows:
+        return []
+
+    out_paragraphs = []
+    for row_el in footnote_rows:
+        cells = row_el.findall(f"./{_w_tag('tc')}")
+        if not cells:
+            continue
+        foot_cell = cells[0]
+        for para_el in foot_cell.findall(f"./{_w_tag('p')}"):
+            cloned_para = copy.deepcopy(para_el)
+            if footnote_para_style:
+                _set_paragraph_style(
+                    cloned_para,
+                    footnote_para_style,
+                    clear_direct_formatting=True,
+                )
+                for run_el in cloned_para.xpath(".//w:r", namespaces=NS):
+                    _clear_run_properties(run_el)
+            out_paragraphs.append(cloned_para)
+
+    for row_el in footnote_rows:
+        parent = row_el.getparent()
+        if parent is not None:
+            parent.remove(row_el)
+
+    return out_paragraphs
 
 
 def parse_args():
@@ -319,7 +540,6 @@ def main():
     source_table_pos = src_table_positions[args.table_index - 1]
     table_el = copy.deepcopy(src_siblings[source_table_pos])
     _normalize_table_width(table_el, src_body, source_table_pos)
-    _apply_table_style(table_el, table_style)
 
     footnote_els = []
     if args.include_footnote:
@@ -352,6 +572,13 @@ def main():
             print("ERROR: template DOCX missing word/document.xml", file=sys.stderr)
             return 2
         tpl_entries = {name: tpl_zip.read(name) for name in tpl_zip.namelist()}
+    style_lookup = _extract_style_lookup(tpl_entries.get("word/styles.xml"))
+    extracted_table_footnotes = _extract_table_footnote_paragraphs(
+        table_el,
+        table_style,
+        style_lookup=style_lookup,
+    )
+    _apply_table_style(table_el, table_style, style_lookup=style_lookup)
 
     tpl_root = etree.fromstring(tpl_xml)
     body = tpl_root.xpath("//w:body", namespaces=ns)
@@ -375,8 +602,12 @@ def main():
         return 2
 
     target_para.addprevious(table_el)
+    anchor = table_el
+    if extracted_table_footnotes:
+        for para_el in extracted_table_footnotes:
+            anchor.addnext(para_el)
+            anchor = para_el
     if footnote_els:
-        anchor = table_el
         for footnote_el in footnote_els:
             anchor.addnext(footnote_el)
             anchor = footnote_el

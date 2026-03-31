@@ -52,10 +52,17 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
           font_family = "Times New Roman",
           font_size = 10,
           header_fill = "#D9EAF7",
-          header_bold = TRUE
+          header_bold = TRUE,
+          header_paragraph_style = "Table Head",
+          split_row_paragraph_style = "Table Left",
+          first_column_paragraph_style = "Table Left",
+          body_paragraph_style = "Table Center"
         ),
         per_table = list(
-          "table1.docx" = list(header_rows = 2)
+          "table1.docx" = list(
+            header_rows = 2,
+            footnote_paragraph_style = "Table Footnote Info"
+          )
         )
       )
     )
@@ -69,6 +76,11 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
   expect_equal(calls$table_style$header_fill, "D9EAF7")
   expect_true(calls$table_style$header_bold)
   expect_equal(calls$table_style$header_rows, 2L)
+  expect_equal(calls$table_style$header_paragraph_style, "Table Head")
+  expect_equal(calls$table_style$split_row_paragraph_style, "Table Left")
+  expect_equal(calls$table_style$first_column_paragraph_style, "Table Left")
+  expect_equal(calls$table_style$body_paragraph_style, "Table Center")
+  expect_equal(calls$table_style$footnote_paragraph_style, "Table Footnote Info")
   expect_true(grepl("-intdocxtab-1\\.docx$", calls$alt_text_input))
   expect_equal(calls$alt_text_output, "output.docx")
 })

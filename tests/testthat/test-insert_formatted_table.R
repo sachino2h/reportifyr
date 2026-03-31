@@ -120,7 +120,13 @@ test_that("insert_formatted_table passes style JSON to the script", {
         header_fill = "#D9EAF7",
         header_bold = TRUE,
         font_family = "Times New Roman",
-        font_size = 10
+        font_size = 10,
+        extract_table_footnotes = TRUE,
+        header_paragraph_style = "Table Head",
+        split_row_paragraph_style = "Table Left",
+        first_column_paragraph_style = "Table Left",
+        body_paragraph_style = "Table Center",
+        footnote_paragraph_style = "Table Footnote Info"
       )
     )
   )
@@ -136,4 +142,60 @@ test_that("insert_formatted_table passes style JSON to the script", {
   expect_equal(style$font_family, "Times New Roman")
   expect_equal(style$font_size, 10)
   expect_equal(style$header_rows, 1)
+  expect_true(style$extract_table_footnotes)
+  expect_equal(style$header_paragraph_style, "Table Head")
+  expect_equal(style$split_row_paragraph_style, "Table Left")
+  expect_equal(style$first_column_paragraph_style, "Table Left")
+  expect_equal(style$body_paragraph_style, "Table Center")
+  expect_equal(style$footnote_paragraph_style, "Table Footnote Info")
+})
+
+test_that("insert_formatted_table supports alias paragraph style keys", {
+  source <- withr::local_tempfile(fileext = ".docx")
+  file.create(source)
+  template <- withr::local_tempfile(fileext = ".docx")
+  file.create(template)
+  output <- withr::local_tempfile(fileext = ".docx")
+  calls <- new.env(parent = emptyenv())
+  calls$args <- NULL
+
+  mockery::stub(insert_formatted_table, "validate_input_args", function(...) NULL)
+  mockery::stub(insert_formatted_table, "system.file", function(...) "script.py")
+  mockery::stub(insert_formatted_table, "file.exists", function(...) TRUE)
+  mockery::stub(
+    insert_formatted_table,
+    "get_venv_uv_paths",
+    function(...) list(uv = "uv", venv = "venv")
+  )
+  mockery::stub(insert_formatted_table, "processx::run", function(args, ...) {
+    calls$args <- args
+    list(status = 0, stdout = "", stderr = "")
+  })
+
+  expect_silent(
+    insert_formatted_table(
+      source_docx_path = source,
+      template_path = template,
+      output_path = output,
+      placeholder_text = "{rpfy}:table.csv",
+      docx_table_style = list(
+        table_header = "Table Head",
+        table_split_row = "Table Left",
+        table_first_column = "Table Left",
+        table_normal_cell = "Table Center",
+        table_footnote = "Table Footnote Info"
+      )
+    )
+  )
+
+  style_arg_index <- match("--style-json", calls$args)
+  expect_false(is.na(style_arg_index))
+  style_json <- calls$args[[style_arg_index + 1]]
+  style <- jsonlite::fromJSON(style_json, simplifyVector = TRUE)
+
+  expect_equal(style$header_paragraph_style, "Table Head")
+  expect_equal(style$split_row_paragraph_style, "Table Left")
+  expect_equal(style$first_column_paragraph_style, "Table Left")
+  expect_equal(style$body_paragraph_style, "Table Center")
+  expect_equal(style$footnote_paragraph_style, "Table Footnote Info")
 })

@@ -16,12 +16,46 @@ normalize_docx_table_style <- function(docx_table_style, table_file = NULL) {
     stop("docx_table_style must be a named list")
   }
 
+  alias_map <- c(
+    table_header = "header_paragraph_style",
+    table_split_row = "split_row_paragraph_style",
+    table_first_column = "first_column_paragraph_style",
+    table_normal_cell = "body_paragraph_style",
+    table_footnote = "footnote_paragraph_style"
+  )
+
+  alias_keys <- intersect(style_names, names(alias_map))
+  if (length(alias_keys) > 0) {
+    for (alias_key in alias_keys) {
+      target_key <- unname(alias_map[[alias_key]])
+      if (target_key %in% style_names) {
+        stop(
+          paste0(
+            "docx_table_style cannot include both '",
+            alias_key,
+            "' and '",
+            target_key,
+            "'"
+          )
+        )
+      }
+      names(docx_table_style)[names(docx_table_style) == alias_key] <- target_key
+      style_names[style_names == alias_key] <- target_key
+    }
+  }
+
   direct_keys <- c(
     "header_fill",
     "header_bold",
     "font_family",
     "font_size",
-    "header_rows"
+    "header_rows",
+    "extract_table_footnotes",
+    "header_paragraph_style",
+    "split_row_paragraph_style",
+    "first_column_paragraph_style",
+    "body_paragraph_style",
+    "footnote_paragraph_style"
   )
 
   if (any(style_names %in% direct_keys)) {
@@ -116,12 +150,48 @@ validate_docx_table_style_list <- function(style, arg_name) {
     stop(paste0(arg_name, " must be a named list"))
   }
 
+  alias_map <- c(
+    table_header = "header_paragraph_style",
+    table_split_row = "split_row_paragraph_style",
+    table_first_column = "first_column_paragraph_style",
+    table_normal_cell = "body_paragraph_style",
+    table_footnote = "footnote_paragraph_style"
+  )
+
+  style_names <- names(style)
+  aliased <- intersect(style_names, names(alias_map))
+  if (length(aliased) > 0) {
+    for (alias_key in aliased) {
+      target_key <- unname(alias_map[[alias_key]])
+      if (target_key %in% style_names) {
+        stop(
+          paste0(
+            arg_name,
+            " cannot include both '",
+            alias_key,
+            "' and '",
+            target_key,
+            "'"
+          )
+        )
+      }
+      names(style)[names(style) == alias_key] <- target_key
+      style_names[style_names == alias_key] <- target_key
+    }
+  }
+
   allowed_fields <- c(
     "header_fill",
     "header_bold",
     "font_family",
     "font_size",
-    "header_rows"
+    "header_rows",
+    "extract_table_footnotes",
+    "header_paragraph_style",
+    "split_row_paragraph_style",
+    "first_column_paragraph_style",
+    "body_paragraph_style",
+    "footnote_paragraph_style"
   )
 
   unknown_fields <- setdiff(names(style), allowed_fields)
@@ -216,6 +286,32 @@ validate_docx_table_style_list <- function(style, arg_name) {
     }
 
     normalized_style$header_rows <- as.integer(normalized_style$header_rows)
+  }
+
+  if ("extract_table_footnotes" %in% names(normalized_style)) {
+    if (!is.logical(normalized_style$extract_table_footnotes) ||
+        length(normalized_style$extract_table_footnotes) != 1 ||
+        is.na(normalized_style$extract_table_footnotes)) {
+      stop(paste0(arg_name, "$extract_table_footnotes must be TRUE or FALSE"))
+    }
+  }
+
+  paragraph_style_fields <- c(
+    "header_paragraph_style",
+    "split_row_paragraph_style",
+    "first_column_paragraph_style",
+    "body_paragraph_style",
+    "footnote_paragraph_style"
+  )
+  for (fld in paragraph_style_fields) {
+    if (fld %in% names(normalized_style)) {
+      value <- normalized_style[[fld]]
+      if (!is.character(value) || length(value) != 1 ||
+          is.na(value) || !nzchar(trimws(value))) {
+        stop(paste0(arg_name, "$", fld, " must be a single non-empty string"))
+      }
+      normalized_style[[fld]] <- trimws(value)
+    }
   }
 
   normalized_style

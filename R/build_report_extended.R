@@ -21,6 +21,11 @@
 #' @param include_object_path A boolean indicating whether object paths are included.
 #' @param footnotes_fail_on_missing_metadata A boolean controlling strict metadata handling.
 #' @param docx_table_style Optional styling object for DOCX table artifacts.
+#'   Supports `header_fill`, `header_bold`, `font_family`, `font_size`,
+#'   `header_rows`, `extract_table_footnotes`, `header_paragraph_style`,
+#'   `split_row_paragraph_style`,
+#'   `first_column_paragraph_style`, `body_paragraph_style`, and
+#'   `footnote_paragraph_style` (directly or via `default`/`per_table`).
 #' @param block_paragraph_styles Optional paragraph style mapping for extended
 #'   block title/footnote text. Supply a named list with any of:
 #'   `table_title`, `table_footnote`, `image_title`, `image_footnote`.
