@@ -47,6 +47,60 @@ resolve_build_report_extended_output <- function(docx_in, docx_out) {
   make_doc_dirs(docx_in = docx_in)$doc_draft
 }
 
+normalize_block_paragraph_styles <- function(block_paragraph_styles) {
+  if (is.null(block_paragraph_styles)) {
+    return(NULL)
+  }
+
+  if (!is.list(block_paragraph_styles) || is.data.frame(block_paragraph_styles)) {
+    stop("block_paragraph_styles must be NULL or a named list", call. = FALSE)
+  }
+
+  if (length(block_paragraph_styles) == 0) {
+    return(NULL)
+  }
+
+  style_names <- names(block_paragraph_styles)
+  if (is.null(style_names) || any(!nzchar(style_names))) {
+    stop("block_paragraph_styles must be a named list", call. = FALSE)
+  }
+
+  allowed_fields <- c(
+    "table_title",
+    "table_footnote",
+    "image_title",
+    "image_footnote"
+  )
+  unknown_fields <- setdiff(style_names, allowed_fields)
+  if (length(unknown_fields) > 0) {
+    stop(
+      paste0(
+        "Unknown block_paragraph_styles field(s): ",
+        paste(unknown_fields, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  out <- list()
+  for (nm in intersect(allowed_fields, style_names)) {
+    val <- block_paragraph_styles[[nm]]
+    if (!is.character(val) || length(val) != 1 || is.na(val) || !nzchar(trimws(val))) {
+      stop(
+        paste0("block_paragraph_styles$", nm, " must be a single non-empty string"),
+        call. = FALSE
+      )
+    }
+    out[[nm]] <- trimws(val)
+  }
+
+  if (length(out) == 0) {
+    return(NULL)
+  }
+
+  out
+}
+
 normalize_version_label <- function(version) {
   if (is.null(version)) {
     return(NULL)

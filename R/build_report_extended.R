@@ -21,6 +21,9 @@
 #' @param include_object_path A boolean indicating whether object paths are included.
 #' @param footnotes_fail_on_missing_metadata A boolean controlling strict metadata handling.
 #' @param docx_table_style Optional styling object for DOCX table artifacts.
+#' @param block_paragraph_styles Optional paragraph style mapping for extended
+#'   block title/footnote text. Supply a named list with any of:
+#'   `table_title`, `table_footnote`, `image_title`, `image_footnote`.
 #' @param version Optional version label/number used to create versioned output folders
 #'   and update YAML metadata.
 #' @param versions_root Optional root directory for version folders. If `NULL`,
@@ -41,6 +44,7 @@ build_report_extended <- function(
   include_object_path = FALSE,
   footnotes_fail_on_missing_metadata = TRUE,
   docx_table_style = NULL,
+  block_paragraph_styles = NULL,
   version = NULL,
   versions_root = NULL
 ) {
@@ -69,6 +73,7 @@ build_report_extended <- function(
   )
   log4r::info(.le$logger, paste0("Output document path set: ", output_path))
   intermediate_yaml_docx <- gsub(".docx", "-intyaml.docx", output_path)
+  normalized_block_styles <- normalize_block_paragraph_styles(block_paragraph_styles)
 
   script <- system.file("scripts/add_yaml_blocks.py", package = "azreportifyr")
   args <- c(
@@ -87,6 +92,13 @@ build_report_extended <- function(
     "-c",
     config_yaml
   )
+  if (!is.null(normalized_block_styles)) {
+    args <- c(
+      args,
+      "--block-style-json",
+      jsonlite::toJSON(normalized_block_styles, auto_unbox = TRUE)
+    )
+  }
 
   paths <- get_venv_uv_paths()
   result <- tryCatch(

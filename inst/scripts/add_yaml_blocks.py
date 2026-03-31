@@ -1,5 +1,6 @@
 import argparse
 import copy
+import json
 import os
 import re
 import sys
@@ -80,27 +81,73 @@ def insert_run_after(paragraph, anchor_run, text, hidden=False, style_from_run=N
     return new_run
 
 
-def add_title_run(paragraph, title_text):
-    run = paragraph.add_run(title_text)
-    run.bold = True
-    run.font.size = Pt(12)
-    if is_missing_token(title_text):
-        run.font.color.rgb = RGBColor(255, 0, 0)
-    return run
+def add_title_run(paragraph, title_text, apply_legacy_format=True):
+    text = str(title_text).replace("\\t", "\t")
+    parts = text.split("\t")
+    last_run = None
+    missing = is_missing_token(title_text)
+    for i, part in enumerate(parts):
+        run = paragraph.add_run(part)
+        if apply_legacy_format:
+            run.bold = True
+            run.font.size = Pt(12)
+        if missing:
+            run.font.color.rgb = RGBColor(255, 0, 0)
+        last_run = run
+        if i < len(parts) - 1:
+            tab_run = paragraph.add_run()
+            tab_run.add_tab()
+            if apply_legacy_format:
+                tab_run.bold = True
+                tab_run.font.size = Pt(12)
+            if missing:
+                tab_run.font.color.rgb = RGBColor(255, 0, 0)
+            last_run = tab_run
+    return last_run
 
 
-def add_footnote_run(paragraph, footnote_text):
-    run = paragraph.add_run(footnote_text)
-    run.font.size = Pt(10)
-    if is_missing_token(footnote_text):
-        run.font.color.rgb = RGBColor(255, 0, 0)
-    return run
+def add_footnote_run(paragraph, footnote_text, apply_legacy_format=True):
+    text = str(footnote_text).replace("\\t", "\t")
+    parts = text.split("\t")
+    last_run = None
+    missing = is_missing_token(footnote_text)
+    for i, part in enumerate(parts):
+        run = paragraph.add_run(part)
+        if apply_legacy_format:
+            run.font.size = Pt(10)
+        if missing:
+            run.font.color.rgb = RGBColor(255, 0, 0)
+        last_run = run
+        if i < len(parts) - 1:
+            tab_run = paragraph.add_run()
+            tab_run.add_tab()
+            if apply_legacy_format:
+                tab_run.font.size = Pt(10)
+            if missing:
+                tab_run.font.color.rgb = RGBColor(255, 0, 0)
+            last_run = tab_run
+    return last_run
 
 
 def add_missing_run(paragraph, text):
     run = paragraph.add_run(text)
     run.font.color.rgb = RGBColor(255, 0, 0)
     return run
+
+
+def apply_paragraph_style(paragraph, style_name, context, clear_direct_formatting=False):
+    if clear_direct_formatting:
+        # Remove paragraph-level direct formatting (spacing/indents/etc.)
+        # so Word shows the pure named style (like officer::body_add_par).
+        p_pr = paragraph._p.find("w:pPr", paragraph._p.nsmap)
+        if p_pr is not None:
+            paragraph._p.remove(p_pr)
+    try:
+        paragraph.style = style_name
+    except (KeyError, ValueError):
+        raise ValueError(
+            f"Paragraph style '{style_name}' not found for {context}."
+        )
 
 
 def insert_paragraph_after(paragraph):
@@ -574,7 +621,47 @@ def restore_preserved_docx_parts(docx_in, docx_out):
     os.replace(tmp_path, docx_out)
 
 
-def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_yaml=None):
+def _parse_block_style_json(style_json):
+    if style_json is None:
+        return {}
+
+    try:
+        style = json.loads(style_json)
+    except json.JSONDecodeError:
+        raise ValueError("--block-style-json must be valid JSON")
+
+    if not isinstance(style, dict):
+        raise ValueError("--block-style-json must be a JSON object")
+
+    allowed_fields = {
+        "table_title",
+        "table_footnote",
+        "image_title",
+        "image_footnote",
+    }
+    unknown_fields = set(style.keys()) - allowed_fields
+    if unknown_fields:
+        raise ValueError(
+            "Unsupported block style field(s): " + ", ".join(sorted(unknown_fields))
+        )
+
+    normalized = {}
+    for key, value in style.items():
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"block style '{key}' must be a non-empty string")
+        normalized[key] = value.strip()
+    return normalized
+
+
+def process_doc(
+    docx_in,
+    docx_out,
+    yaml_in,
+    assets_dir,
+    tables_dir=None,
+    config_yaml=None,
+    block_style_map=None,
+):
     doc = Document(docx_in)
     yml = helper.load_yaml(yaml_in) or {}
     config = helper.load_yaml(config_yaml) if config_yaml else {}
@@ -596,6 +683,7 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
         blocks_map[normalize_key(k)] = v
 
     used_ids = set()
+    block_style_map = block_style_map or {}
 
     # Inline text replacement first.
     inline_seen = {}
@@ -633,8 +721,26 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
             marker_text_with_value("BLOCK_TYPE", block_id, block_type),
         )
         add_hidden_marker(paragraph, marker_text("TITLE_START", block_id))
+        title_style_name = block_style_map.get(f"{block_type}_title")
         if title:
-            add_title_run(paragraph, title)
+            if title_style_name:
+                apply_paragraph_style(
+                    paragraph,
+                    title_style_name,
+                    context=f"{block_type} title",
+                    clear_direct_formatting=True,
+                )
+                add_title_run(
+                    paragraph,
+                    title,
+                    apply_legacy_format=False,
+                )
+            else:
+                add_title_run(
+                    paragraph,
+                    title,
+                    apply_legacy_format=False,
+                )
         add_hidden_marker(paragraph, marker_text("TITLE_END", block_id))
 
         anchor = paragraph
@@ -695,8 +801,21 @@ def process_doc(docx_in, docx_out, yaml_in, assets_dir, tables_dir=None, config_
         foot_para = insert_paragraph_after(anchor)
         add_hidden_marker(foot_para, marker_text("FOOTNOTE_START", block_id))
         if footnote:
-            foot_para.style = paragraph.style
-            add_footnote_run(foot_para, footnote)
+            footnote_style_name = block_style_map.get(f"{block_type}_footnote")
+            if footnote_style_name:
+                apply_paragraph_style(
+                    foot_para,
+                    footnote_style_name,
+                    context=f"{block_type} footnote",
+                    clear_direct_formatting=True,
+                )
+            else:
+                foot_para.style = paragraph.style
+            add_footnote_run(
+                foot_para,
+                footnote,
+                apply_legacy_format=False,
+            )
         add_hidden_marker(foot_para, marker_text("FOOTNOTE_END", block_id))
         if block_type == "table":
             if table_file_for_marker:
@@ -736,6 +855,12 @@ def main():
     parser.add_argument("-a", "--assets_dir", required=True, help="Assets directory")
     parser.add_argument("-t", "--tables_dir", required=False, default=None, help="Tables directory")
     parser.add_argument("-c", "--config", required=False, default=None, help="Config yaml path")
+    parser.add_argument(
+        "--block-style-json",
+        required=False,
+        default=None,
+        help="Optional JSON mapping for block paragraph styles.",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -745,6 +870,8 @@ def main():
     if not os.path.isdir(args.assets_dir):
         raise NotADirectoryError(f"assets_dir is not a directory: {args.assets_dir}")
 
+    block_style_map = _parse_block_style_json(args.block_style_json)
+
     process_doc(
         args.input,
         args.output,
@@ -752,6 +879,7 @@ def main():
         args.assets_dir,
         tables_dir=args.tables_dir,
         config_yaml=args.config,
+        block_style_map=block_style_map,
     )
 
 

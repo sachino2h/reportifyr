@@ -164,3 +164,76 @@ test_that("build_report_extended uses versioned output and updates yaml metadata
   expect_equal(calls$metadata_version, 5)
   expect_equal(calls$resolved_output, "versions/v005/base-out.docx")
 })
+
+test_that("build_report_extended passes block paragraph styles to yaml renderer", {
+  docx_in <- tempfile(fileext = ".docx")
+  yaml_in <- tempfile(fileext = ".yaml")
+  figures_path <- tempfile("figures-")
+  tables_path <- tempfile("tables-")
+  file.create(docx_in)
+  writeLines("inline: {}", con = yaml_in)
+  dir.create(figures_path)
+
+  calls <- new.env(parent = emptyenv())
+  calls$args <- NULL
+
+  mockery::stub(build_report_extended, "resolve_build_report_extended_output", function(...) "out.docx")
+  mockery::stub(build_report_extended, "resolve_versioned_output_path", function(...) "out.docx")
+  mockery::stub(build_report_extended, "get_venv_uv_paths", function(...) {
+    list(uv = "uv", venv = "venv")
+  })
+  mockery::stub(build_report_extended, "run_build_report_extended_script", function(paths, args) {
+    calls$args <- args
+    list(status = 0L, stdout = "ok", stderr = "")
+  })
+  mockery::stub(build_report_extended, "extract_extended_table_magic_strings", function(...) character())
+  mockery::stub(build_report_extended, "extract_rpfy_magic_strings_from_doc", function(...) character())
+  mockery::stub(build_report_extended, "update_yaml_version_metadata", function(...) invisible(NULL))
+  mockery::stub(build_report_extended, "file.copy", function(...) TRUE)
+  mockery::stub(build_report_extended, "unlink", function(...) 0L)
+
+  out <- build_report_extended(
+    docx_in = docx_in,
+    docx_out = "out.docx",
+    figures_path = figures_path,
+    tables_path = tables_path,
+    yaml_in = yaml_in,
+    block_paragraph_styles = list(
+      table_title = "Table Title",
+      table_footnote = "Table Footnote Info",
+      image_title = "Figure Title",
+      image_footnote = "Figure Footnote Info"
+    )
+  )
+
+  expect_match(out, "build_report_extended completed", fixed = TRUE)
+  style_arg_index <- which(calls$args == "--block-style-json")
+  expect_equal(length(style_arg_index), 1L)
+  style_json <- calls$args[[style_arg_index + 1L]]
+  style <- jsonlite::fromJSON(style_json, simplifyVector = TRUE)
+  expect_equal(style$table_title, "Table Title")
+  expect_equal(style$table_footnote, "Table Footnote Info")
+  expect_equal(style$image_title, "Figure Title")
+  expect_equal(style$image_footnote, "Figure Footnote Info")
+})
+
+test_that("build_report_extended validates unknown block paragraph style fields", {
+  docx_in <- tempfile(fileext = ".docx")
+  yaml_in <- tempfile(fileext = ".yaml")
+  figures_path <- tempfile("figures-")
+  file.create(docx_in)
+  writeLines("inline: {}", con = yaml_in)
+  dir.create(figures_path)
+
+  expect_error(
+    build_report_extended(
+      docx_in = docx_in,
+      figures_path = figures_path,
+      tables_path = "tables",
+      yaml_in = yaml_in,
+      block_paragraph_styles = list(title = "Table Title")
+    ),
+    "Unknown block_paragraph_styles field",
+    fixed = TRUE
+  )
+})
