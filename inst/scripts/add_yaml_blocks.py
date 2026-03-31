@@ -150,6 +150,14 @@ def apply_paragraph_style(paragraph, style_name, context, clear_direct_formattin
         )
 
 
+def apply_optional_paragraph_style(paragraph, style_name):
+    try:
+        paragraph.style = style_name
+    except (KeyError, ValueError):
+        # Keep backward compatibility when a template does not define this style.
+        pass
+
+
 def insert_paragraph_after(paragraph):
     new_p = OxmlElement("w:p")
     paragraph._p.addnext(new_p)
@@ -749,6 +757,7 @@ def process_doc(
             add_hidden_marker(anchor, marker_text("IMAGE_START", block_id))
             for image_info in resolved_images:
                 image_para = insert_paragraph_after(anchor)
+                apply_optional_paragraph_style(image_para, "Figure")
                 image_para.alignment = resolve_alignment(config)
                 run = image_para.add_run()
                 add_picture_with_config(
@@ -770,6 +779,7 @@ def process_doc(
                 missing_files = [f for f in files if is_missing_token(f)]
                 if missing_files:
                     image_para = insert_paragraph_after(anchor)
+                    apply_optional_paragraph_style(image_para, "Figure")
                     image_para.alignment = resolve_alignment(config)
                     add_missing_run(image_para, ", ".join(missing_files))
                     anchor = image_para
