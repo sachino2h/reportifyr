@@ -46,7 +46,7 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
       docx_in = "input.docx",
       docx_out = "output.docx",
       tables_path = "tables",
-      docx_footnote = TRUE,
+      docx_footnote = FALSE,
       docx_table_style = list(
         default = list(
           font_family = "Times New Roman",
@@ -70,6 +70,7 @@ test_that("add_tables routes .docx tables through insert_formatted_table", {
 
   expect_equal(calls$insert, 1L)
   expect_equal(calls$process, 0L)
+  # docx_footnote is now ignored for DOCX artifacts and footnotes are always included.
   expect_true(calls$include_footnote)
   expect_equal(calls$table_style$font_family, "Times New Roman")
   expect_equal(calls$table_style$font_size, 10)

@@ -8,7 +8,8 @@
 #' @param standard_footnotes_yaml The file path to the `standard_footnotes.yaml`. Default is `NULL`. If `NULL`, a default `standard_footnotes.yaml` bundled with the `reportifyr` package is used.
 #' @param config_yaml The file path to the `config.yaml`. Default is `NULL`, a default `config.yaml` bundled with the `reportifyr` package is used.
 #' @param add_footnotes A boolean indicating whether to insert footnotes into the `docx_in` or not. Default is `TRUE`.
-#' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
+#' @param docx_footnote Deprecated and ignored for DOCX table artifacts.
+#'   DOCX table footnotes are always inserted.
 #' @param include_object_path A boolean indicating whether to include the file path of the figure or table in the footnotes. Default is `FALSE`.
 #' @param footnotes_fail_on_missing_metadata A boolean indicating whether to stop execution if the metadata `.json` file for a figure or table is missing. Default is `TRUE`.
 #' @param docx_table_style Optional styling to apply to inserted `.docx` table

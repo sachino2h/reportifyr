@@ -17,7 +17,8 @@
 #' @param standard_footnotes_yaml Optional file path to a standard footnotes YAML.
 #' @param config_yaml Optional file path to the config YAML.
 #' @param add_footnotes A boolean indicating whether footnotes should be added.
-#' @param docx_footnote A boolean indicating whether DOCX artifact footnotes are enabled.
+#' @param docx_footnote Deprecated and ignored for DOCX table artifacts.
+#'   DOCX table footnotes are always inserted.
 #' @param include_object_path A boolean indicating whether object paths are included.
 #' @param footnotes_fail_on_missing_metadata A boolean controlling strict metadata handling.
 #' @param docx_table_style Optional styling object for DOCX table artifacts.

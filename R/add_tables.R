@@ -5,7 +5,8 @@
 #' @param docx_out The file path to the output `.docx` file to save to.
 #' @param tables_path The file path to the tables and associated metadata directory.
 #' @param config_yaml The file path to the `config.yaml`. Default is `NULL`, a default `config.yaml` bundled with the `reportifyr` package is used.
-#' @param docx_footnote A boolean indicating whether to insert footnote text from DOCX table artifacts into the output document. Default is `FALSE`.
+#' @param docx_footnote Deprecated and ignored. DOCX table footnotes are now
+#'   always inserted for `.docx` table artifacts to ensure consistent output.
 #' @param docx_table_style Optional styling to apply to inserted `.docx` table
 #'   artifacts. This can be a single named list with fields
 #'   `header_fill`, `header_bold`, `font_family`, `font_size`, `header_rows`,
@@ -58,6 +59,12 @@ add_tables <- function(
   if (!is.logical(docx_footnote) || length(docx_footnote) != 1 ||
       is.na(docx_footnote)) {
     stop("docx_footnote must be TRUE or FALSE")
+  }
+  if (!isTRUE(docx_footnote)) {
+    log4r::info(
+      .le$logger,
+      "docx_footnote is deprecated/ignored; DOCX table footnotes are always included."
+    )
   }
 
   if (is.null(config_yaml)) {
@@ -170,7 +177,7 @@ add_tables <- function(
         template_path = docx_for_alt_text,
         output_path = next_docx,
         placeholder_text = job$placeholder_text,
-        include_footnote = docx_footnote,
+        include_footnote = TRUE,
         docx_table_style = job$docx_table_style
       )
       intermediate_docx_table_docs <- c(intermediate_docx_table_docs, next_docx)
