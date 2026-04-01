@@ -240,7 +240,7 @@ extract_extended_table_magic_strings <- function(yaml_in) {
   for (nm in names(blocks)) {
     block <- blocks[[nm]]
     block_type <- tolower(trimws(as.character(block$type %||% "")))
-    if (block_type != "table") {
+    if (nzchar(block_type) && !(block_type %in% c("table", "block"))) {
       next
     }
     files <- block$files

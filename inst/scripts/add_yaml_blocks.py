@@ -20,6 +20,7 @@ import helper
 INLINE_PATTERN = re.compile(r"\{\{([^{}]+)\}\}|<<text:([^>]+)>>")
 IMAGE_PATTERN = re.compile(r"<<image:([^>]+)>>")
 TABLE_PATTERN = re.compile(r"<<table:([^>]+)>>")
+BLOCK_PATTERN = re.compile(r"<<block:([^>]+)>>")
 GENERIC_BLOCK_PATTERN = re.compile(r"<<([^<>:|]+)>>")
 EXPANDED_BLOCK_PATTERN = re.compile(r"<<([^<>]+\|[^<>]+)>>")
 VALID_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff"}
@@ -135,6 +136,24 @@ def add_missing_run(paragraph, text):
     return run
 
 
+def add_multiline_value_runs(paragraph, text):
+    normalized = str(text or "")
+    # Accept actual newlines and escaped forms: "\n" and "\\n".
+    normalized = normalized.replace("\\\\n", "\n").replace("\\n", "\n")
+    normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
+    parts = normalized.split("\n")
+    last_run = None
+    missing = is_missing_token(normalized)
+    for i, part in enumerate(parts):
+        run = paragraph.add_run(part)
+        if missing:
+            run.font.color.rgb = RGBColor(255, 0, 0)
+        last_run = run
+        if i < len(parts) - 1:
+            run.add_break()
+    return last_run
+
+
 def apply_paragraph_style(paragraph, style_name, context, clear_direct_formatting=False):
     if clear_direct_formatting:
         # Remove paragraph-level direct formatting (spacing/indents/etc.)
@@ -156,6 +175,22 @@ def apply_optional_paragraph_style(paragraph, style_name):
     except (KeyError, ValueError):
         # Keep backward compatibility when a template does not define this style.
         pass
+
+
+def apply_optional_paragraph_style_candidates(paragraph, style_names):
+    for style_name in style_names:
+        if not style_name:
+            continue
+        try:
+            apply_paragraph_style(
+                paragraph,
+                style_name,
+                context=f"optional style {style_name}",
+                clear_direct_formatting=True,
+            )
+            return
+        except ValueError:
+            continue
 
 
 def insert_paragraph_after(paragraph):
@@ -373,10 +408,24 @@ def parse_block_tag(paragraph_text):
             "files": [],
         }
 
+    bm = BLOCK_PATTERN.search(paragraph_text)
+    if bm:
+        key = bm.group(1).strip()
+        key = key.lstrip(":").strip()
+        return {
+            "key": key,
+            "type": "block",
+            "raw_tag": bm.group(0),
+            "title": "",
+            "footnote": "",
+            "value": "",
+            "files": [],
+        }
+
     em = EXPANDED_BLOCK_PATTERN.search(paragraph_text)
     if em:
         expanded = parse_expanded_block(em.group(1))
-        if expanded and expanded.get("type", "").lower() in ("image", "table"):
+        if expanded and expanded.get("type", "").lower() in ("image", "table", "block"):
             files = []
             files_raw = expanded.get("files", "")
             if files_raw:
@@ -387,6 +436,7 @@ def parse_block_tag(paragraph_text):
                 "raw_tag": em.group(0),
                 "title": expanded.get("title", ""),
                 "footnote": expanded.get("footnote", ""),
+                "value": expanded.get("value", ""),
                 "files": files,
             }
 
@@ -399,6 +449,7 @@ def parse_block_tag(paragraph_text):
             "raw_tag": gm.group(0),
             "title": "",
             "footnote": "",
+            "value": "",
             "files": [],
         }
     return None
@@ -712,9 +763,13 @@ def process_doc(
         footnote = (tag.get("footnote") or block_yaml.get("footnote") or "").strip()
         files = tag.get("files") or coerce_files(block_yaml.get("files"))
         inferred_type = infer_block_type_from_files(files)
-        if inferred_type:
+        if inferred_type and not block_type:
             block_type = inferred_type
-        if block_type not in ("image", "table"):
+        value_text = tag.get("value")
+        if value_text is None or value_text == "":
+            value_text = block_yaml.get("value", "")
+        value_text = str(value_text or "")
+        if block_type not in ("image", "table", "block"):
             continue
 
         remove_tag_from_paragraph(paragraph, tag["raw_tag"])
@@ -728,30 +783,32 @@ def process_doc(
             paragraph,
             marker_text_with_value("BLOCK_TYPE", block_id, block_type),
         )
-        add_hidden_marker(paragraph, marker_text("TITLE_START", block_id))
-        title_style_name = block_style_map.get(f"{block_type}_title")
-        if title:
-            if title_style_name:
-                apply_paragraph_style(
-                    paragraph,
-                    title_style_name,
-                    context=f"{block_type} title",
-                    clear_direct_formatting=True,
-                )
-                add_title_run(
-                    paragraph,
-                    title,
-                    apply_legacy_format=False,
-                )
-            else:
-                add_title_run(
-                    paragraph,
-                    title,
-                    apply_legacy_format=False,
-                )
-        add_hidden_marker(paragraph, marker_text("TITLE_END", block_id))
+        if block_type != "block":
+            add_hidden_marker(paragraph, marker_text("TITLE_START", block_id))
+            title_style_name = block_style_map.get(f"{block_type}_title")
+            if title:
+                if title_style_name:
+                    apply_paragraph_style(
+                        paragraph,
+                        title_style_name,
+                        context=f"{block_type} title",
+                        clear_direct_formatting=True,
+                    )
+                    add_title_run(
+                        paragraph,
+                        title,
+                        apply_legacy_format=False,
+                    )
+                else:
+                    add_title_run(
+                        paragraph,
+                        title,
+                        apply_legacy_format=False,
+                    )
+            add_hidden_marker(paragraph, marker_text("TITLE_END", block_id))
 
         anchor = paragraph
+        table_files_for_marker = []
         if block_type == "image":
             resolved_images = resolve_images(files, assets_dir)
             add_hidden_marker(anchor, marker_text("IMAGE_START", block_id))
@@ -785,56 +842,114 @@ def process_doc(
                     anchor = image_para
             add_hidden_marker(anchor, marker_text("IMAGE_END", block_id))
         else:
-            # Extended table tags are matched as <<table:name>> (or expanded Type:table).
-            # We intentionally create a temporary {rpfy}:file.ext placeholder so the
-            # existing R add_tables() pipeline can be reused without duplicating table
-            # insertion logic. The temporary placeholder is removed after add_tables().
-            add_hidden_marker(anchor, marker_text("TABLE_START", block_id))
-            table_file_for_marker = ""
-            placeholder_file = resolve_table_placeholder(files, key=tag["key"], tables_dir=tables_dir)
-            if placeholder_file:
-                placeholder = f"{{rpfy}}:{placeholder_file}"
-                table_para = insert_paragraph_after(anchor)
-                table_para.style = paragraph.style
-                table_para.add_run(placeholder)
-                table_file_for_marker = placeholder_file
-                # Keep anchor at placeholder so footnote is placed after rendered table.
-                anchor = table_para
+            if block_type == "table":
+                # Extended table tags are matched as <<table:name>> (or expanded Type:table).
+                # We intentionally create a temporary {rpfy}:file.ext placeholder so the
+                # existing R add_tables() pipeline can be reused without duplicating table
+                # insertion logic. The temporary placeholder is removed after add_tables().
+                add_hidden_marker(anchor, marker_text("TABLE_START", block_id))
+                placeholder_file = resolve_table_placeholder(files, key=tag["key"], tables_dir=tables_dir)
+                if placeholder_file:
+                    placeholder = f"{{rpfy}}:{placeholder_file}"
+                    table_para = insert_paragraph_after(anchor)
+                    table_para.style = paragraph.style
+                    table_para.add_run(placeholder)
+                    table_files_for_marker.append(placeholder_file)
+                    # Keep anchor at placeholder so footnote is placed after rendered table.
+                    anchor = table_para
+                else:
+                    missing_files = [f for f in files if is_missing_token(f)]
+                    if missing_files:
+                        miss_para = insert_paragraph_after(anchor)
+                        miss_para.style = paragraph.style
+                        add_missing_run(miss_para, ", ".join(missing_files))
+                        anchor = miss_para
             else:
-                missing_files = [f for f in files if is_missing_token(f)]
-                if missing_files:
-                    miss_para = insert_paragraph_after(anchor)
-                    miss_para.style = paragraph.style
-                    add_missing_run(miss_para, ", ".join(missing_files))
-                    anchor = miss_para
+                # block type: render paragraph value where tag existed, then render
+                # mixed image/table files in order based on extension.
+                apply_optional_paragraph_style_candidates(paragraph, ["Paragraph", "paragraph"])
+                if value_text:
+                    add_multiline_value_runs(paragraph, value_text)
+                for file_entry in files:
+                    parsed = parse_file_entry(file_entry)
+                    base = os.path.basename(parsed["file"])
+                    if is_missing_token(parsed["file"]) or is_missing_token(file_entry):
+                        miss_para = insert_paragraph_after(anchor)
+                        apply_optional_paragraph_style_candidates(miss_para, ["Paragraph", "paragraph"])
+                        add_missing_run(miss_para, str(parsed["file"] or file_entry))
+                        anchor = miss_para
+                        continue
+                    ext = os.path.splitext(base)[1].lower()
+                    if ext in VALID_IMAGE_EXT:
+                        image_path = os.path.join(assets_dir, base)
+                        image_para = insert_paragraph_after(anchor)
+                        apply_optional_paragraph_style(image_para, "Figure")
+                        image_para.alignment = resolve_alignment(config)
+                        if os.path.exists(image_path):
+                            run = image_para.add_run()
+                            add_picture_with_config(
+                                run=run,
+                                image_path=image_path,
+                                image_args=parsed["args"],
+                                config=config,
+                            )
+                            add_hidden_marker(
+                                image_para,
+                                marker_text_with_value("IMAGE_FILE", block_id, base),
+                            )
+                        else:
+                            add_missing_run(image_para, base)
+                        anchor = image_para
+                    elif ext in VALID_TABLE_EXT:
+                        table_para = insert_paragraph_after(anchor)
+                        apply_optional_paragraph_style_candidates(table_para, ["Paragraph", "paragraph"])
+                        placeholder = f"{{rpfy}}:{base}"
+                        table_para.add_run(placeholder)
+                        table_files_for_marker.append(base)
+                        anchor = table_para
 
-        foot_para = insert_paragraph_after(anchor)
-        add_hidden_marker(foot_para, marker_text("FOOTNOTE_START", block_id))
-        if footnote:
-            footnote_style_name = block_style_map.get(f"{block_type}_footnote")
-            if footnote_style_name:
-                apply_paragraph_style(
+        if block_type == "block":
+            marker_anchor = anchor
+            if len(table_files_for_marker) > 0:
+                marker_para = insert_paragraph_after(anchor)
+                marker_para.style = paragraph.style
+                for table_file in table_files_for_marker:
+                    add_hidden_marker(
+                        marker_para,
+                        marker_text_with_value("TABLE_FILE", block_id, table_file),
+                    )
+                add_hidden_marker(marker_para, marker_text("TABLE_END", block_id))
+                marker_anchor = marker_para
+            add_hidden_marker(marker_anchor, marker_text("BLOCK_END", block_id))
+        else:
+            foot_para = insert_paragraph_after(anchor)
+            add_hidden_marker(foot_para, marker_text("FOOTNOTE_START", block_id))
+            if footnote:
+                footnote_style_name = block_style_map.get(f"{block_type}_footnote")
+                if footnote_style_name:
+                    apply_paragraph_style(
+                        foot_para,
+                        footnote_style_name,
+                        context=f"{block_type} footnote",
+                        clear_direct_formatting=True,
+                    )
+                else:
+                    foot_para.style = paragraph.style
+                add_footnote_run(
                     foot_para,
-                    footnote_style_name,
-                    context=f"{block_type} footnote",
-                    clear_direct_formatting=True,
+                    footnote,
+                    apply_legacy_format=False,
                 )
-            else:
-                foot_para.style = paragraph.style
-            add_footnote_run(
-                foot_para,
-                footnote,
-                apply_legacy_format=False,
-            )
-        add_hidden_marker(foot_para, marker_text("FOOTNOTE_END", block_id))
-        if block_type == "table":
-            if table_file_for_marker:
-                add_hidden_marker(
-                    foot_para,
-                    marker_text_with_value("TABLE_FILE", block_id, table_file_for_marker),
-                )
-            add_hidden_marker(foot_para, marker_text("TABLE_END", block_id))
-        add_hidden_marker(foot_para, marker_text("BLOCK_END", block_id))
+            add_hidden_marker(foot_para, marker_text("FOOTNOTE_END", block_id))
+            if block_type == "table":
+                for table_file in table_files_for_marker:
+                    add_hidden_marker(
+                        foot_para,
+                        marker_text_with_value("TABLE_FILE", block_id, table_file),
+                    )
+                if len(table_files_for_marker) > 0:
+                    add_hidden_marker(foot_para, marker_text("TABLE_END", block_id))
+            add_hidden_marker(foot_para, marker_text("BLOCK_END", block_id))
 
     doc.save(docx_out)
     restore_preserved_docx_parts(docx_in, docx_out)
